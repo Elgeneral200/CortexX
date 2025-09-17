@@ -1,0 +1,11 @@
+# === Core ===
+streamlit
+pandas
+numpy
+pyarrow
+openpyxl
+
+# === Visualization ===
+matplotlib
+seaborn
+plotly
