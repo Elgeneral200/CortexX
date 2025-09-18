@@ -1,731 +1,1095 @@
+# filename: visualization.py
 """
-Data Visualization Module (Dark Theme)
+Data Visualization Module - Fixed Professional Edition
 
-Provides professional data visualization functions for data analysis including:
-- Dataset overview dashboard (metrics + summaries)
-- Missing value analysis
-- Numerical and categorical visualizations
-- Advanced analysis (outliers, scatter matrix, distribution by category)
-with a cohesive, modern dark theme.
-
-This version fixes widget key stability and unifies color themes. It also adds
-sampling safeguards for large datasets to keep the app smooth and responsive.
+Clean, reliable data visualization functions with:
+- Professional chart styling and themes
+- Interactive business intelligence dashboards
+- Statistical analysis visualizations
+- Data quality visual assessments
+- Export capabilities
+- Streamlit integration
 
 Author: CortexX Team
-Version: 1.0.0
+Version: 1.2.0 - Fixed Professional Edition
 """
 
-from __future__ import annotations
-from typing import Dict, List, Optional
-from uuid import uuid4
-
 import pandas as pd
+import numpy as np
 import plotly.express as px
-import streamlit as st
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+from typing import Dict, List, Optional, Tuple, Any
+import warnings
+from datetime import datetime
+import time
 
-# Dark theme constants
-DARK_BG_PRIMARY = "#0b1220"  # App background
-DARK_BG_PANEL = "#0f172a"    # Plot area background
-DARK_BG_SURFACE = "#111827"  # Paper background
-TEXT_COLOR = "#e5e7eb"
-GRID_COLOR = "#334155"
+# Suppress warnings for cleaner output
+warnings.filterwarnings('ignore')
 
-# Unified colorway for discrete data
-COLORWAY = [
-    "#60a5fa", "#f59e0b", "#22c55e", "#f472b6", "#a78bfa",
-    "#06b6d4", "#84cc16", "#f97316", "#ef4444", "#94a3b8",
-]
+# Try to import optional dependencies
+try:
+    from scipy import stats
+    SCIPY_AVAILABLE = True
+except ImportError:
+    SCIPY_AVAILABLE = False
 
-# Unified continuous scale
-CONTINUOUS_SCALE = "Cividis"
+try:
+    from sklearn.ensemble import IsolationForest
+    SKLEARN_AVAILABLE = True
+except ImportError:
+    SKLEARN_AVAILABLE = False
 
-# Plotly defaults
-px.defaults.template = "plotly_dark"
-px.defaults.color_discrete_sequence = COLORWAY
-px.defaults.color_continuous_scale = CONTINUOUS_SCALE
+# Check for Streamlit availability
+try:
+    import streamlit as st
+    STREAMLIT_AVAILABLE = True
+except ImportError:
+    STREAMLIT_AVAILABLE = False
+    # Create dummy streamlit module for non-Streamlit environments
+    class DummyStreamlit:
+        def __getattr__(self, name):
+            def dummy_function(*args, **kwargs):
+                print(f"Streamlit not available: {name} called with args={args}, kwargs={kwargs}")
+                return None
+            return dummy_function
+    st = DummyStreamlit()
 
-# Accent colors
-PROFESSIONAL_COLORS = {
-    "primary": "#60a5fa",
-    "secondary": "#f59e0b",
-    "success": "#22c55e",
-    "danger": "#ef4444",
-    "warning": "#f59e0b",
-    "info": "#06b6d4",
-    "purple": "#a78bfa",
-    "pink": "#f472b6",
-    "gray": "#94a3b8",
-    "lime": "#84cc16",
-}
+# ============================
+# THEME SYSTEM
+# ============================
 
+class VisualizationTheme:
+    """Simple theme configuration for professional visualizations."""
 
-def _apply_dark_layout(fig, height: Optional[int] = None, hovermode: Optional[str] = "x unified") -> None:
-    """Apply cohesive dark theme layout styling to the Plotly figure."""
-    fig.update_layout(
-        template="plotly_dark",
-        paper_bgcolor=DARK_BG_SURFACE,
-        plot_bgcolor=DARK_BG_PANEL,
-        font=dict(color=TEXT_COLOR, size=12),
-        margin=dict(l=50, r=50, t=50, b=50),
-        hovermode=hovermode,
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1,
-            bgcolor="rgba(0,0,0,0)",
-            font=dict(size=11, color=TEXT_COLOR),
-        ),
-        bargap=0.05,
+    def __init__(self, name: str, mode: str = "dark"):
+        self.name = name
+        self.mode = mode
+
+        if mode == "dark":
+            self.bg_primary = "#0f172a"
+            self.bg_secondary = "#1e293b"
+            self.text_primary = "#f8fafc"
+            self.text_secondary = "#e2e8f0"
+            self.accent_primary = "#3b82f6"
+            self.accent_secondary = "#10b981"
+            self.warning_color = "#f59e0b"
+            self.error_color = "#ef4444"
+            self.success_color = "#10b981"
+            self.grid_color = "#374151"
+            self.colorway = [
+                "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
+                "#06b6d4", "#84cc16", "#f97316", "#ec4899", "#6b7280"
+            ]
+        else:  # light mode
+            self.bg_primary = "#ffffff"
+            self.bg_secondary = "#f8fafc"
+            self.text_primary = "#1e293b"
+            self.text_secondary = "#475569"
+            self.accent_primary = "#2563eb"
+            self.accent_secondary = "#059669"
+            self.warning_color = "#d97706"
+            self.error_color = "#dc2626"
+            self.success_color = "#059669"
+            self.grid_color = "#e2e8f0"
+            self.colorway = [
+                "#2563eb", "#059669", "#d97706", "#dc2626", "#7c3aed",
+                "#0891b2", "#65a30d", "#ea580c", "#db2777", "#6b7280"
+            ]
+
+# Global theme
+current_theme = VisualizationTheme("Professional Dark", "dark")
+
+def set_theme(theme_mode: str = "dark") -> None:
+    """Set the global visualization theme."""
+    global current_theme
+    current_theme = VisualizationTheme(f"Professional {theme_mode.title()}", theme_mode)
+
+    # Update Plotly defaults
+    template = "plotly_dark" if theme_mode == "dark" else "plotly_white"
+    px.defaults.template = template
+    px.defaults.color_discrete_sequence = current_theme.colorway
+
+# Initialize with dark theme
+set_theme("dark")
+
+# ============================
+# UTILITY FUNCTIONS
+# ============================
+
+def get_unique_key(prefix: str = "viz") -> str:
+    """Generate a unique key for Streamlit widgets."""
+    return f"{prefix}_{int(time.time() * 1000)}"
+
+def apply_professional_layout(
+    fig: go.Figure, 
+    title: Optional[str] = None,
+    height: Optional[int] = None,
+    showlegend: bool = True
+) -> None:
+    """Apply professional styling to any Plotly figure."""
+
+    theme = current_theme
+    height = height or 400
+
+    layout_config = {
+        "template": "plotly_dark" if theme.mode == "dark" else "plotly_white",
+        "paper_bgcolor": theme.bg_secondary,
+        "plot_bgcolor": theme.bg_primary,
+        "font": {
+            "family": "Inter, -apple-system, BlinkMacSystemFont, sans-serif",
+            "size": 12,
+            "color": theme.text_primary
+        },
+        "title": {
+            "text": title,
+            "font": {"size": 16, "color": theme.text_primary},
+            "x": 0.5,
+            "xanchor": "center"
+        },
+        "margin": {"l": 60, "r": 60, "t": 80, "b": 60},
+        "height": height,
+        "hovermode": "x unified",
+        "showlegend": showlegend,
+        "legend": {
+            "orientation": "h",
+            "yanchor": "bottom",
+            "y": 1.02,
+            "xanchor": "right",
+            "x": 1,
+            "bgcolor": "rgba(0,0,0,0)",
+            "font": {"size": 11, "color": theme.text_secondary}
+        }
+    }
+
+    fig.update_layout(**layout_config)
+
+    # Update axes styling
+    fig.update_xaxes(
+        gridcolor=theme.grid_color,
+        tickfont={"color": theme.text_secondary, "size": 11},
+        titlefont={"color": theme.text_primary, "size": 12}
     )
-    if height is not None:
-        fig.update_layout(height=height)
-    fig.update_xaxes(gridcolor=GRID_COLOR, zerolinecolor=GRID_COLOR, linecolor=GRID_COLOR, tickfont=dict(color=TEXT_COLOR))
-    fig.update_yaxes(gridcolor=GRID_COLOR, zerolinecolor=GRID_COLOR, linecolor=GRID_COLOR, tickfont=dict(color=TEXT_COLOR))
 
-
-def _enhance_bars(fig) -> None:
-    """Apply enhanced bar and histogram styling to the Plotly figure."""
-    fig.update_traces(
-        selector=dict(type="bar"),
-        marker_line_color=GRID_COLOR,
-        marker_line_width=1.2,
-        opacity=0.95,
-        textfont=dict(color=TEXT_COLOR),
-    )
-    fig.update_traces(
-        selector=dict(type="histogram"),
-        marker_line_color=GRID_COLOR,
-        marker_line_width=1.2,
-        opacity=0.95,
+    fig.update_yaxes(
+        gridcolor=theme.grid_color,
+        tickfont={"color": theme.text_secondary, "size": 11},
+        titlefont={"color": theme.text_primary, "size": 12}
     )
 
+def sample_large_dataset(df: pd.DataFrame, max_rows: int = 10000) -> pd.DataFrame:
+    """Sample large datasets for better visualization performance."""
+    if len(df) <= max_rows:
+        return df
+    return df.sample(n=max_rows, random_state=42)
 
-def _uniq(prefix: str) -> str:
-    """Generate a unique key with a given prefix for Streamlit widgets."""
-    return f"{prefix}_{uuid4().hex}"
+# ============================
+# DASHBOARD COMPONENTS
+# ============================
 
+def render_header(title: str, subtitle: Optional[str] = None) -> None:
+    """Render professional dashboard header."""
+    if not STREAMLIT_AVAILABLE:
+        print(f"Header: {title}" + (f" - {subtitle}" if subtitle else ""))
+        return
 
-def _maybe_sample(df: pd.DataFrame, max_rows: int = 100_000) -> pd.DataFrame:
-    """
-    Sample the DataFrame to max_rows for heavy plotting operations.
-    Deterministic sampling for reproducibility.
-    """
-    if len(df) > max_rows:
-        return df.sample(max_rows, random_state=42)
-    return df
-
-
-def create_data_overview_dashboard(df: pd.DataFrame, column_types: Dict[str, str]) -> None:
-    """Display comprehensive dataset overview metrics and column summaries."""
-    st.markdown(
-        """
+    theme = current_theme
+    header_html = f"""
     <div style="
-        background: linear-gradient(135deg, #0ea5e9 0%, #1d4ed8 100%);
-        padding: 18px; border-radius: 12px; margin-bottom: 16px;
-        border: 1px solid rgba(255,255,255,0.12);">
-        <h3 style="color: #e5e7eb; margin: 0;">📊 Dataset Overview</h3>
-        <p style="color: #e5e7eb; opacity: 0.85; margin: 6px 0 0 0;">Comprehensive analysis of your data</p>
+        background: linear-gradient(135deg, {theme.accent_primary}, {theme.accent_secondary});
+        padding: 2rem 3rem;
+        border-radius: 12px;
+        margin-bottom: 2rem;
+        box-shadow: 0 8px 32px rgba(59, 130, 246, 0.3);
+        text-align: center;
+    ">
+        <h1 style="
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: white;
+            margin: 0;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        ">📊 {title}</h1>
+        {f'<p style="font-size: 1.2rem; color: rgba(255,255,255,0.9); margin: 0.5rem 0 0 0;">{subtitle}</p>' if subtitle else ''}
     </div>
-    """,
-        unsafe_allow_html=True,
-    )
-    c1, c2, c3, c4, c5 = st.columns(5)
-    with c1:
-        st.metric("📏 Total Rows", f"{len(df):,}")
-    with c2:
-        st.metric("📊 Total Columns", f"{len(df.columns):,}")
-    with c3:
-        num_cols = sum(1 for t in column_types.values() if t == "num")
-        st.metric("🔢 Numerical", f"{num_cols}")
-    with c4:
-        cat_cols = sum(1 for t in column_types.values() if t == "cat")
-        st.metric("🏷️ Categorical", f"{cat_cols}")
-    with c5:
-        missing_total = int(df.isna().sum().sum())
-        total_cells = int(len(df) * max(1, len(df.columns)))
-        missing_pct = (missing_total / total_cells) * 100 if total_cells else 0.0
-        st.metric("❓ Missing", f"{missing_total:,}", delta=f"{missing_pct:.1f}%")
-    st.markdown("---")
-    _display_column_type_summary(df, column_types)
+    """
+    st.markdown(header_html, unsafe_allow_html=True)
 
-
-def _display_column_type_summary(df: pd.DataFrame, column_types: Dict[str, str]) -> None:
-    """Display summaries for numerical and categorical columns."""
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown(
-            """
-        <div style="background: #0f172a; padding: 16px; border-radius: 10px; 
-                    border-left: 4px solid #60a5fa; border: 1px solid #334155;">
-            <h4 style="color: #60a5fa; margin-top: 0;">🔢 Numerical Columns</h4>
-        """,
-            unsafe_allow_html=True,
-        )
-        num_columns = [c for c, t in column_types.items() if t == "num" and c in df.columns]
-        if num_columns:
-            for col in num_columns[:8]:
-                missing_pct = (df[col].isna().sum() / len(df) * 100) if len(df) else 0.0
-                unique_pct = (df[col].nunique() / len(df) * 100) if len(df) else 0.0
-                st.write(f"• {col} — {missing_pct:.1f}% missing, {unique_pct:.1f}% unique")
-            if len(num_columns) > 8:
-                st.write(f"... and {len(num_columns) - 8} more")
-        else:
-            st.write("No numerical columns detected")
-        st.markdown("</div>", unsafe_allow_html=True)
-    with col2:
-        st.markdown(
-            """
-        <div style="background: #0f172a; padding: 16px; border-radius: 10px; 
-                    border-left: 4px solid #f59e0b; border: 1px solid #334155;">
-            <h4 style="color: #f59e0b; margin-top: 0;">🏷️ Categorical Columns</h4>
-        """,
-            unsafe_allow_html=True,
-        )
-        cat_columns = [c for c, t in column_types.items() if t == "cat" and c in df.columns]
-        if cat_columns:
-            for col in cat_columns[:8]:
-                unique_count = df[col].nunique(dropna=True)
-                most_common = df[col].mode().iloc[0] if not df[col].mode().empty else "N/A"
-                st.write(f"• {col} — {unique_count} unique, top: {str(most_common)[:15]}")
-            if len(cat_columns) > 8:
-                st.write(f"... and {len(cat_columns) - 8} more")
-        else:
-            st.write("No categorical columns detected")
-        st.markdown("</div>", unsafe_allow_html=True)
-
-
-def create_compact_missing_overview(df: pd.DataFrame, key_prefix: Optional[str] = None) -> None:
-    """Display compact overview of missing values."""
-    if df.empty:
-        st.warning("⚠️ Cannot analyze missing values: DataFrame is empty")
-        return
-    kp = key_prefix or uuid4().hex
-    missing_data = df.isna().sum()
-    missing_percent = (missing_data / len(df)) * 100 if len(df) else 0.0
-    if missing_data.sum() == 0:
-        st.success("✅ No missing values detected in your dataset!")
-        return
-    col1, col2 = st.columns(2)
-    with col1:
-        total_missing = int(missing_data.sum())
-        coverage = float((total_missing / (len(df) * len(df.columns))) * 100) if len(df.columns) else 0.0
-        st.metric(
-            label="🔍 Total Missing Values",
-            value=f"{total_missing:,}",
-            delta=f"{coverage:.1f}% of dataset",
-        )
-        missing_cols = missing_percent[missing_percent > 0].sort_values(ascending=True)
-        if len(missing_cols) > 0:
-            fig = px.bar(
-                x=missing_cols.values,
-                y=missing_cols.index,
-                orientation="h",
-                title="Missing Values by Column (%)",
-                color=missing_cols.values,
-                color_continuous_scale=CONTINUOUS_SCALE,
-            )
-            _enhance_bars(fig)
-            _apply_dark_layout(fig, height=360)
-            st.plotly_chart(fig, use_container_width=True, key=_uniq(f"{kp}_missing_bar"))
-    with col2:
-        sample_size = min(1000, len(df))
-        sample_df = df.sample(sample_size, random_state=42) if len(df) > sample_size else df
-        missing_matrix = sample_df.isna().astype(int)
-        missing_scale = [(0.0, DARK_BG_PANEL), (1.0, PROFESSIONAL_COLORS["warning"])]
-        fig = px.imshow(missing_matrix.T, aspect="auto", color_continuous_scale=missing_scale, title="Missing Values Pattern")
-        _apply_dark_layout(fig, height=360)
-        fig.update_xaxes(title=f"Rows ({'sampled' if len(df) > sample_size else 'all'})")
-        fig.update_yaxes(title="Columns")
-        st.plotly_chart(fig, use_container_width=True, key=_uniq(f"{kp}_missing_heatmap"))
-
-
-def create_numerical_visualizations(
-    df: pd.DataFrame, num_columns: List[str], key_prefix: Optional[str] = None
-) -> None:
-    """Create visualizations for numerical columns."""
-    if not num_columns:
-        st.info("📊 No numerical columns available for visualization.")
+def render_kpi_metrics(metrics: Dict[str, Dict[str, Any]]) -> None:
+    """Render KPI metrics in a professional layout."""
+    if not STREAMLIT_AVAILABLE:
+        print("KPI Metrics:")
+        for name, data in metrics.items():
+            print(f"  {name}: {data.get('value', 'N/A')}")
         return
 
-    kp = key_prefix or "num"
-    col_select, viz_select = st.columns([2, 1])
+    num_metrics = len(metrics)
+    cols = st.columns(min(num_metrics, 5))
 
-    with col_select:
-        selected_cols = st.multiselect(
-            "📈 Select numerical columns to visualize:",
-            num_columns,
-            default=num_columns[: min(4, len(num_columns))],
-            help="Choose up to 6 columns for optimal display",
-            key=f"{kp}_num_select",
-        )
-    with viz_select:
-        viz_type = st.selectbox(
-            "📊 Visualization Type:",
-            ["Distribution", "Box Plot", "Correlation Matrix", "Summary Stats"],
-            help="Choose the type of analysis",
-            key=f"{kp}_num_viztype",
-        )
-
-    if not selected_cols:
-        st.warning("Please select at least one column to visualize.")
-        return
-
-    _create_numerical_plots(df, selected_cols, viz_type, kp)
-
-
-def _create_numerical_plots(df: pd.DataFrame, selected_cols: List[str], viz_type: str, kp: str) -> None:
-    if viz_type == "Distribution":
-        _create_distribution_plots(df, selected_cols, kp)
-    elif viz_type == "Box Plot":
-        _create_box_plots(df, selected_cols, kp)
-    elif viz_type == "Correlation Matrix":
-        _create_correlation_matrix(df, selected_cols, kp)
-    elif viz_type == "Summary Stats":
-        _create_summary_stats(df, selected_cols)
-
-
-def _create_distribution_plots(df: pd.DataFrame, selected_cols: List[str], kp: str) -> None:
-    dfp = _maybe_sample(df)
-    num_plots = len(selected_cols)
-    if num_plots == 1:
-        fig = px.histogram(
-            dfp,
-            x=selected_cols[0],
-            nbins=30,
-            title=f"Distribution of {selected_cols[0]}",
-            color_discrete_sequence=[PROFESSIONAL_COLORS["primary"]],
-            opacity=0.9,
-            marginal="rug",
-        )
-        _enhance_bars(fig)
-        _apply_dark_layout(fig, height=360)
-        st.plotly_chart(fig, use_container_width=True, key=_uniq(f"{kp}_dist_{selected_cols[0]}"))
-    elif num_plots == 2:
-        col1, col2 = st.columns(2)
-        for i, col in enumerate(selected_cols):
-            with col1 if i == 0 else col2:
-                fig = px.histogram(
-                    dfp,
-                    x=col,
-                    nbins=25,
-                    title=f"{col}",
-                    color_discrete_sequence=[
-                        PROFESSIONAL_COLORS["primary"] if i == 0 else PROFESSIONAL_COLORS["secondary"]
-                    ],
-                    opacity=0.9,
-                )
-                _enhance_bars(fig)
-                _apply_dark_layout(fig, height=320)
-                st.plotly_chart(fig, use_container_width=True, key=_uniq(f"{kp}_dist_{col}_{i}"))
-    else:
-        cols = st.columns(2)
-        colors = [
-            PROFESSIONAL_COLORS["primary"],
-            PROFESSIONAL_COLORS["secondary"],
-            PROFESSIONAL_COLORS["success"],
-            PROFESSIONAL_COLORS["warning"],
-            PROFESSIONAL_COLORS["purple"],
-            PROFESSIONAL_COLORS["pink"],
-        ]
-        for i, col in enumerate(selected_cols):
-            with cols[i % 2]:
-                fig = px.histogram(
-                    dfp,
-                    x=col,
-                    nbins=20,
-                    title=f"{col}",
-                    color_discrete_sequence=[colors[i % len(colors)]],
-                    opacity=0.9,
-                )
-                _enhance_bars(fig)
-                _apply_dark_layout(fig, height=300)
-                st.plotly_chart(fig, use_container_width=True, key=_uniq(f"{kp}_dist_multi_{col}_{i}"))
-
-
-def _create_box_plots(df: pd.DataFrame, selected_cols: List[str], kp: str) -> None:
-    dfp = _maybe_sample(df)
-    num_plots = len(selected_cols)
-    if num_plots == 1:
-        fig = px.box(
-            dfp,
-            y=selected_cols[0],
-            title=f"Box Plot: {selected_cols[0]}",
-            color_discrete_sequence=[PROFESSIONAL_COLORS["success"]],
-            points="outliers",
-        )
-        _apply_dark_layout(fig, height=360)
-        st.plotly_chart(fig, use_container_width=True, key=_uniq(f"{kp}_box_{selected_cols[0]}"))
-    elif num_plots == 2:
-        col1, col2 = st.columns(2)
-        for i, col in enumerate(selected_cols):
-            with col1 if i == 0 else col2:
-                fig = px.box(
-                    dfp,
-                    y=col,
-                    title=f"{col}",
-                    color_discrete_sequence=[
-                        PROFESSIONAL_COLORS["success"] if i == 0 else PROFESSIONAL_COLORS["warning"]
-                    ],
-                    points="outliers",
-                )
-                _apply_dark_layout(fig, height=320)
-                st.plotly_chart(fig, use_container_width=True, key=_uniq(f"{kp}_box_{col}_{i}"))
-    else:
-        df_melted = _maybe_sample(df[selected_cols]).melt(var_name="Column", value_name="Value")
-        fig = px.box(
-            df_melted,
-            x="Column",
-            y="Value",
-            title="Box Plots Comparison",
-            color="Column",
-            color_discrete_sequence=COLORWAY,
-            points=False,
-        )
-        _apply_dark_layout(fig, height=420)
-        fig.update_layout(showlegend=False)
-        fig.update_xaxes(tickangle=45)
-        st.plotly_chart(fig, use_container_width=True, key=_uniq(f"{kp}_box_multi"))
-
-
-def _create_correlation_matrix(df: pd.DataFrame, selected_cols: List[str], kp: str) -> None:
-    if len(selected_cols) > 1:
-        dfp = df[selected_cols]
-        corr_matrix = dfp.corr(numeric_only=True)
-        fig = px.imshow(
-            corr_matrix,
-            text_auto=True,
-            aspect="auto",
-            color_continuous_scale=CONTINUOUS_SCALE,
-            zmin=corr_matrix.min().min(),
-            zmax=corr_matrix.max().max(),
-            title="Correlation Matrix",
-        )
-        _apply_dark_layout(fig, height=460, hovermode=None)
-        st.plotly_chart(fig, use_container_width=True, key=_uniq(f"{kp}_corr"))
-        _display_correlation_insights(corr_matrix)
-    else:
-        st.warning("⚠️ Select at least 2 columns for correlation analysis.")
-
-
-def _display_correlation_insights(corr_matrix: pd.DataFrame) -> None:
-    st.markdown("#### 🔍 Correlation Insights")
-    corr_pairs = []
-    for i in range(len(corr_matrix.columns)):
-        for j in range(i + 1, len(corr_matrix.columns)):
-            corr_val = corr_matrix.iloc[i, j]
-            if abs(corr_val) > 0.5:
-                corr_pairs.append((corr_matrix.columns[i], corr_matrix.columns[j], corr_val))
-    if corr_pairs:
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("**Strong Positive Correlations (>0.5):**")
-            for a, b, v in sorted(corr_pairs, key=lambda x: x[2], reverse=True):
-                if v > 0.5:
-                    st.write(f"• {a} ↔ {b}: {v:.3f}")
-        with col2:
-            st.markdown("**Strong Negative Correlations (<-0.5):**")
-            for a, b, v in sorted(corr_pairs, key=lambda x: x[2]):
-                if v < -0.5:
-                    st.write(f"• {a} ↔ {b}: {v:.3f}")
-    else:
-        st.info("No strong correlations (>0.5 or <-0.5) found between selected columns.")
-
-
-def _create_summary_stats(df: pd.DataFrame, selected_cols: List[str]) -> None:
-    st.markdown("#### 📊 Statistical Summary")
-    stats_df = df[selected_cols].describe()
-    for col in selected_cols:
-        with st.expander(f"📈 {col} Statistics", expanded=len(selected_cols) <= 2):
-            m1, m2, m3, m4 = st.columns(4)
-            with m1:
-                st.metric("Mean", f"{stats_df.loc['mean', col]:.2f}")
-            with m2:
-                st.metric("Std Dev", f"{stats_df.loc['std', col]:.2f}")
-            with m3:
-                st.metric("Min", f"{stats_df.loc['min', col]:.2f}")
-            with m4:
-                st.metric("Max", f"{stats_df.loc['max', col]:.2f}")
-
-
-def create_categorical_visualizations(
-    df: pd.DataFrame, cat_columns: List[str], key_prefix: Optional[str] = None
-) -> None:
-    """Create visualizations for categorical columns."""
-    if not cat_columns:
-        st.info("🏷️ No categorical columns available for visualization.")
-        return
-
-    kp = key_prefix or "cat"
-    col_select, viz_select = st.columns([2, 1])
-
-    with col_select:
-        selected_cols = st.multiselect(
-            "🏷️ Select categorical columns to visualize:",
-            cat_columns,
-            default=cat_columns[: min(4, len(cat_columns))],
-            help="Choose columns to analyze",
-            key=f"{kp}_cat_select",
-        )
-    with viz_select:
-        viz_type = st.selectbox(
-            "📊 Visualization Type:",
-            ["Value Counts", "Top Categories", "Category Distribution"],
-            help="Choose analysis type",
-            key=f"{kp}_cat_viztype",
-        )
-
-    if not selected_cols:
-        st.warning("Please select at least one column to visualize.")
-        return
-
-    _create_categorical_plots(df, selected_cols, viz_type, kp)
-
-
-def _create_categorical_plots(df: pd.DataFrame, selected_cols: List[str], viz_type: str, kp: str) -> None:
-    if viz_type == "Value Counts":
-        _create_value_count_plots(df, selected_cols, kp)
-    elif viz_type == "Top Categories":
-        _create_top_categories_display(df, selected_cols)
-    elif viz_type == "Category Distribution":
-        _create_category_distribution_plots(df, selected_cols, kp)
-
-
-def _create_value_count_plots(df: pd.DataFrame, selected_cols: List[str], kp: str) -> None:
-    num_plots = len(selected_cols)
-    if num_plots == 1:
-        col = selected_cols[0]
-        top_values = df[col].value_counts().head(15)
-        fig = px.bar(
-            x=top_values.values,
-            y=top_values.index,
-            orientation="h",
-            title=f"Value Counts: {col}",
-            color=top_values.index,
-            color_discrete_sequence=COLORWAY,
-        )
-        fig.update_traces(text=top_values.values, textposition="outside")
-        _enhance_bars(fig)
-        _apply_dark_layout(fig, height=440)
-        fig.update_xaxes(title="Count")
-        fig.update_yaxes(title="Categories", categoryorder="total ascending")
-        fig.update_layout(margin=dict(r=70))
-        st.plotly_chart(fig, use_container_width=True, key=_uniq(f"{kp}_cat_counts_{col}"))
-    elif num_plots == 2:
-        col1, col2 = st.columns(2)
-        for i, col in enumerate(selected_cols):
-            with col1 if i == 0 else col2:
-                top_values = df[col].value_counts().head(10)
-                fig = px.bar(
-                    x=top_values.values,
-                    y=top_values.index,
-                    orientation="h",
-                    title=f"{col}",
-                    color=top_values.index,
-                    color_discrete_sequence=COLORWAY,
-                )
-                fig.update_traces(text=top_values.values, textposition="outside")
-                _enhance_bars(fig)
-                _apply_dark_layout(fig, height=360)
-                fig.update_xaxes(title="Count")
-                fig.update_yaxes(title="", categoryorder="total ascending")
-                fig.update_layout(margin=dict(r=60))
-                st.plotly_chart(fig, use_container_width=True, key=_uniq(f"{kp}_cat_counts_{col}_{i}"))
-    else:
-        cols = st.columns(2)
-        for i, col in enumerate(selected_cols):
-            with cols[i % 2]:
-                top_values = df[col].value_counts().head(8)
-                fig = px.bar(
-                    x=top_values.values,
-                    y=top_values.index,
-                    orientation="h",
-                    title=f"{col}",
-                    color=top_values.index,
-                    color_discrete_sequence=COLORWAY,
-                )
-                fig.update_traces(text=top_values.values, textposition="outside")
-                _enhance_bars(fig)
-                _apply_dark_layout(fig, height=320)
-                fig.update_xaxes(title="Count")
-                fig.update_yaxes(title="", categoryorder="total ascending")
-                fig.update_layout(margin=dict(r=50))
-                st.plotly_chart(fig, use_container_width=True, key=_uniq(f"{kp}_cat_counts_{col}_{i}"))
-
-
-def _create_top_categories_display(df: pd.DataFrame, selected_cols: List[str]) -> None:
-    num_cols = len(selected_cols)
-    cols = st.columns(num_cols if num_cols <= 3 else 3)
-    for i, col in enumerate(selected_cols):
+    for i, (metric_name, metric_data) in enumerate(metrics.items()):
         with cols[i % len(cols)]:
-            if not df[col].empty:
-                counts = df[col].value_counts()
-                if counts.empty:
-                    continue
-                top_value = counts.index[0]
-                top_count = int(counts.iloc[0])
-                total = int(len(df[col].dropna()))
-                percentage = (top_count / total * 100) if total else 0
-                st.metric(
-                    label=f"🏆 Top in {col}",
-                    value=str(top_value)[:20] + "..." if len(str(top_value)) > 20 else str(top_value),
-                    delta=f"{top_count:,} ({percentage:.1f}%)",
-                )
-                st.caption(f"Total unique: {counts.index.nunique():,}")
+            value = metric_data.get("value", "N/A")
+            delta = metric_data.get("delta")
+            icon = metric_data.get("icon", "📊")
+            description = metric_data.get("description", "")
 
+            # Format large numbers
+            if isinstance(value, (int, float)) and value >= 1000:
+                if value >= 1_000_000:
+                    formatted_value = f"{value/1_000_000:.1f}M"
+                elif value >= 1_000:
+                    formatted_value = f"{value/1_000:.1f}K"
+                else:
+                    formatted_value = f"{value:,.0f}"
+            else:
+                formatted_value = str(value)
 
-def _create_category_distribution_plots(df: pd.DataFrame, selected_cols: List[str], kp: str) -> None:
-    num_plots = len(selected_cols)
-    if num_plots == 1:
-        col = selected_cols[0]
-        top_values = df[col].value_counts().head(8)
-        fig = px.pie(
-            values=top_values.values,
-            names=top_values.index,
-            title=f"Distribution: {col}",
-            color_discrete_sequence=COLORWAY,
-            hole=0.35,
-        )
-        _apply_dark_layout(fig, height=420)
-        fig.update_traces(textinfo="percent+label", textfont=dict(color=TEXT_COLOR))
-        st.plotly_chart(fig, use_container_width=True, key=_uniq(f"{kp}_cat_pie_{col}"))
-    elif num_plots == 2:
+            # Render metric card
+            st.metric(
+                label=f"{icon} {metric_name}",
+                value=formatted_value,
+                delta=delta,
+                help=description
+            )
+
+# ============================
+# MAIN VISUALIZATION FUNCTIONS
+# ============================
+
+def create_enhanced_data_overview_dashboard(
+    df: pd.DataFrame, 
+    column_types: Dict[str, str],
+    quality_metrics: Optional[Dict[str, Any]] = None
+) -> None:
+    """Create an enhanced executive-level data overview dashboard."""
+
+    if df.empty:
+        if STREAMLIT_AVAILABLE:
+            st.warning("Cannot create dashboard: DataFrame is empty")
+        else:
+            print("Warning: Cannot create dashboard - DataFrame is empty")
+        return
+
+    render_header(
+        "Sales & Demand Data Overview",
+        "Comprehensive analysis of your dataset quality and characteristics"
+    )
+
+    # Calculate metrics
+    total_cells = len(df) * len(df.columns) if len(df.columns) > 0 else 0
+    missing_count = df.isnull().sum().sum()
+    missing_pct = (missing_count / total_cells * 100) if total_cells > 0 else 0
+
+    duplicate_count = df.duplicated().sum()
+    duplicate_pct = (duplicate_count / len(df) * 100) if len(df) > 0 else 0
+
+    memory_mb = df.memory_usage(deep=True).sum() / 1024 / 1024
+    quality_score = quality_metrics.get("overall_score", 0) if quality_metrics else 0
+
+    # KPI Metrics
+    kpi_metrics = {
+        "Total Records": {
+            "value": len(df),
+            "icon": "📊",
+            "description": "Total number of rows in the dataset"
+        },
+        "Data Quality": {
+            "value": f"{quality_score:.1f}/10" if quality_score > 0 else "N/A",
+            "delta": "Good" if quality_score >= 8 else "Needs Improvement" if quality_score >= 6 else "Poor",
+            "icon": "⭐",
+            "description": "Overall data quality assessment"
+        },
+        "Completeness": {
+            "value": f"{100-missing_pct:.1f}%",
+            "delta": f"{missing_count:,} missing",
+            "icon": "✅",
+            "description": "Percentage of complete data"
+        },
+        "Uniqueness": {
+            "value": f"{100-duplicate_pct:.1f}%",
+            "delta": f"{duplicate_count:,} duplicates",
+            "icon": "🔄",
+            "description": "Percentage of unique records"
+        },
+        "Memory Usage": {
+            "value": f"{memory_mb:.1f}MB",
+            "icon": "💾",
+            "description": "Total memory usage of the dataset"
+        }
+    }
+
+    render_kpi_metrics(kpi_metrics)
+
+    if not STREAMLIT_AVAILABLE:
+        return
+
+    # Data profiling section
+    st.markdown("---")
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        # Column type distribution
+        type_counts = pd.Series([column_types.get(col, 'unknown') for col in df.columns]).value_counts()
+        if not type_counts.empty:
+            fig = px.pie(
+                values=type_counts.values,
+                names=type_counts.index,
+                title="Column Types Distribution",
+                color_discrete_sequence=current_theme.colorway
+            )
+            apply_professional_layout(fig, height=300)
+            st.plotly_chart(fig, use_container_width=True, key=get_unique_key("type_dist"))
+
+    with col2:
+        # Missing values by column
+        missing_by_col = df.isnull().sum().sort_values(ascending=False)
+        top_missing = missing_by_col[missing_by_col > 0].head(10)
+
+        if not top_missing.empty:
+            fig = px.bar(
+                x=top_missing.values,
+                y=top_missing.index,
+                orientation='h',
+                title="Missing Values by Column",
+                color=top_missing.values,
+                color_continuous_scale="Reds"
+            )
+            apply_professional_layout(fig, height=300)
+            st.plotly_chart(fig, use_container_width=True, key=get_unique_key("missing_by_col"))
+        else:
+            st.success("✅ No missing values detected!")
+
+    with col3:
+        # Data type memory usage
+        memory_by_type = {}
+        for col in df.columns:
+            dtype = str(df[col].dtype)
+            col_memory = df[col].memory_usage(deep=True) / 1024 / 1024  # MB
+            if dtype in memory_by_type:
+                memory_by_type[dtype] += col_memory
+            else:
+                memory_by_type[dtype] = col_memory
+
+        if memory_by_type:
+            fig = px.pie(
+                values=list(memory_by_type.values()),
+                names=list(memory_by_type.keys()),
+                title="Memory Usage by Data Type",
+                color_discrete_sequence=current_theme.colorway
+            )
+            apply_professional_layout(fig, height=300)
+            st.plotly_chart(fig, use_container_width=True, key=get_unique_key("memory_by_type"))
+
+def create_advanced_missing_value_analysis(df: pd.DataFrame) -> None:
+    """Create comprehensive missing value analysis with business insights."""
+
+    if df.empty:
+        if STREAMLIT_AVAILABLE:
+            st.warning("⚠️ Cannot analyze missing values: DataFrame is empty")
+        else:
+            print("Warning: Cannot analyze missing values - DataFrame is empty")
+        return
+
+    missing_data = df.isnull().sum()
+    total_missing = missing_data.sum()
+
+    if total_missing == 0:
+        if STREAMLIT_AVAILABLE:
+            st.success("🎉 Excellent! No missing values detected in your dataset!")
+        else:
+            print("✅ No missing values detected in the dataset!")
+        return
+
+    if STREAMLIT_AVAILABLE:
+        st.markdown("### 🔍 Missing Value Analysis")
+
+        # Missing value summary metrics
+        col1, col2, col3, col4 = st.columns(4)
+
+        with col1:
+            st.metric("Total Missing", f"{total_missing:,}")
+        with col2:
+            missing_pct = (total_missing / df.size) * 100
+            st.metric("Missing %", f"{missing_pct:.2f}%")
+        with col3:
+            affected_cols = (missing_data > 0).sum()
+            st.metric("Affected Columns", f"{affected_cols}")
+        with col4:
+            affected_rows = df.isnull().any(axis=1).sum()
+            st.metric("Affected Rows", f"{affected_rows:,}")
+
+        # Detailed analysis
         col1, col2 = st.columns(2)
-        for i, col in enumerate(selected_cols):
-            with col1 if i == 0 else col2:
-                top_values = df[col].value_counts().head(6)
-                fig = px.pie(
-                    values=top_values.values,
-                    names=top_values.index,
-                    title=f"{col}",
-                    color_discrete_sequence=COLORWAY,
-                    hole=0.35,
-                )
-                _apply_dark_layout(fig, height=360)
-                fig.update_traces(textinfo="percent+label", textfont=dict(color=TEXT_COLOR))
-                st.plotly_chart(fig, use_container_width=True, key=_uniq(f"{kp}_cat_pie_{col}_{i}"))
-    else:
-        cols = st.columns(2)
-        for i, col in enumerate(selected_cols):
-            with cols[i % 2]:
-                top_values = df[col].value_counts().head(5)
-                total = int(df[col].count())
-                percentages = (top_values / total * 100).round(1) if total else top_values
+
+        with col1:
+            # Missing values by column
+            missing_cols = missing_data[missing_data > 0].sort_values(ascending=True)
+            missing_pct_cols = (missing_cols / len(df) * 100).round(2)
+
+            if not missing_cols.empty:
                 fig = px.bar(
-                    x=percentages.values,
-                    y=percentages.index,
-                    orientation="h",
-                    title=f"{col} (%)",
-                    color_discrete_sequence=[PROFESSIONAL_COLORS["primary"]],
+                    x=missing_pct_cols.values,
+                    y=missing_pct_cols.index,
+                    orientation='h',
+                    title="Missing Values by Column (%)",
+                    color=missing_pct_cols.values,
+                    color_continuous_scale="Reds",
+                    text=missing_pct_cols.values
                 )
-                fig.update_traces(text=percentages.values, textposition="outside")
-                _enhance_bars(fig)
-                _apply_dark_layout(fig, height=260)
-                fig.update_xaxes(title="Percentage (%)")
-                st.plotly_chart(fig, use_container_width=True, key=_uniq(f"{kp}_cat_bar_{col}_{i}"))
 
+                fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
+                apply_professional_layout(fig, height=400)
+                st.plotly_chart(fig, use_container_width=True, key=get_unique_key("missing_by_col"))
 
-def create_advanced_analysis(df: pd.DataFrame, column_types: Dict[str, str], key_prefix: Optional[str] = None) -> None:
-    """Create advanced analysis including outlier rates, scatter matrix, and distribution by category."""
-    kp = key_prefix or "adv"
-    num_cols = [c for c, t in column_types.items() if t == "num" and c in df.columns]
-    cat_cols = [c for c, t in column_types.items() if t == "cat" and c in df.columns]
+        with col2:
+            # Missing value pattern heatmap
+            sample_size = min(1000, len(df))
+            sample_df = df.sample(sample_size, random_state=42) if len(df) > sample_size else df
 
-    # 1) Outlier analysis
-    st.markdown("### 📌 Outlier Analysis (IQR method)")
-    if num_cols:
-        summary = []
-        for c in num_cols:
-            series = df[c].dropna()
-            if series.empty:
-                summary.append((c, 0.0, 0))
-                continue
-            q1 = series.quantile(0.25)
-            q3 = series.quantile(0.75)
-            iqr = q3 - q1
-            lower = q1 - 1.5 * iqr
-            upper = q3 + 1.5 * iqr
-            outliers = ((series < lower) | (series > upper)).sum()
-            pct = (outliers / len(series) * 100) if len(series) else 0.0
-            summary.append((c, pct, outliers))
-        out_df = pd.DataFrame(summary, columns=["Column", "Outlier %", "Outlier Count"]).sort_values(
-            "Outlier %", ascending=False
+            missing_matrix = sample_df.isnull().astype(int)
+
+            if not missing_matrix.empty:
+                fig = px.imshow(
+                    missing_matrix.T.values,
+                    x=list(range(len(sample_df))),
+                    y=sample_df.columns,
+                    color_continuous_scale=[[0, current_theme.bg_primary], [1, current_theme.warning_color]],
+                    title=f"Missing Value Pattern {'(Sampled)' if len(df) > sample_size else ''}",
+                    aspect="auto"
+                )
+
+                apply_professional_layout(fig, height=400)
+                fig.update_xaxes(title="Row Index")
+                fig.update_yaxes(title="Columns")
+                st.plotly_chart(fig, use_container_width=True, key=get_unique_key("missing_pattern"))
+
+        # Business impact assessment
+        st.markdown("#### 💼 Business Impact Assessment")
+
+        impact_analysis = []
+        missing_cols = missing_data[missing_data > 0]
+        for col in missing_cols.index:
+            missing_count = missing_cols[col]
+            missing_pct = (missing_count / len(df)) * 100
+
+            if missing_pct > 50:
+                impact = "🔴 High Risk - Consider column removal"
+            elif missing_pct > 20:
+                impact = "🟡 Medium Risk - Requires attention"
+            elif missing_pct > 5:
+                impact = "🟢 Low Risk - Monitor"
+            else:
+                impact = "✅ Minimal Risk"
+
+            impact_analysis.append({
+                'Column': col,
+                'Missing Count': missing_count,
+                'Missing %': f"{missing_pct:.1f}%",
+                'Business Impact': impact
+            })
+
+        if impact_analysis:
+            impact_df = pd.DataFrame(impact_analysis)
+            st.dataframe(impact_df, use_container_width=True)
+
+def create_statistical_distribution_analysis(df: pd.DataFrame, num_columns: List[str]) -> None:
+    """Create statistical distribution analysis."""
+
+    if not num_columns:
+        if STREAMLIT_AVAILABLE:
+            st.info("📊 No numerical columns available for statistical analysis.")
+        else:
+            print("No numerical columns available for statistical analysis.")
+        return
+
+    if STREAMLIT_AVAILABLE:
+        st.markdown("### 📈 Statistical Distribution Analysis")
+
+        # Column selection
+        selected_cols = st.multiselect(
+            "Select columns for distribution analysis:",
+            num_columns,
+            default=num_columns[:min(3, len(num_columns))],
+            key=get_unique_key("dist_cols")
         )
-        top_out = out_df.head(8)
-        if not top_out.empty:
-            col1, col2 = st.columns([2, 1])
+
+        if not selected_cols:
+            st.warning("Please select at least one column for analysis.")
+            return
+    else:
+        selected_cols = num_columns[:3]  # Use first 3 columns in non-Streamlit mode
+
+    for col in selected_cols:
+        if STREAMLIT_AVAILABLE:
+            with st.expander(f"📊 Analysis: {col}", expanded=len(selected_cols) == 1):
+                _render_column_distribution_analysis(df, col)
+        else:
+            print(f"\nDistribution Analysis for {col}:")
+            _render_column_distribution_analysis(df, col)
+
+def _render_column_distribution_analysis(df: pd.DataFrame, col: str) -> None:
+    """Render distribution analysis for a single column."""
+    data = df[col].dropna()
+    if len(data) < 10:
+        if STREAMLIT_AVAILABLE:
+            st.warning(f"Not enough data points in {col} for meaningful analysis.")
+        else:
+            print(f"Warning: Not enough data points in {col} for meaningful analysis.")
+        return
+
+    if STREAMLIT_AVAILABLE:
+        # Create distribution visualizations
+        col1, col2 = st.columns(2)
+
+        with col1:
+            # Histogram
+            fig = px.histogram(
+                x=data,
+                nbins=30,
+                title=f"Distribution of {col}",
+                color_discrete_sequence=[current_theme.accent_primary]
+            )
+
+            # Add statistical lines
+            mean_val = data.mean()
+            median_val = data.median()
+
+            fig.add_vline(x=mean_val, line_dash="dash", 
+                         line_color=current_theme.warning_color, 
+                         annotation_text="Mean")
+            fig.add_vline(x=median_val, line_dash="dot", 
+                         line_color=current_theme.success_color,
+                         annotation_text="Median")
+
+            apply_professional_layout(fig, height=400)
+            st.plotly_chart(fig, use_container_width=True, key=get_unique_key(f"hist_{col}"))
+
+        with col2:
+            # Box plot
+            fig = px.box(
+                y=data,
+                title=f"Box Plot of {col}",
+                color_discrete_sequence=[current_theme.accent_secondary]
+            )
+
+            apply_professional_layout(fig, height=400)
+            st.plotly_chart(fig, use_container_width=True, key=get_unique_key(f"box_{col}"))
+
+        # Statistics table
+        stats_data = {
+            'Statistic': ['Count', 'Mean', 'Std', 'Min', '25%', '50%', '75%', 'Max', 'Skewness'],
+            'Value': [
+                f"{len(data):,}",
+                f"{data.mean():.2f}",
+                f"{data.std():.2f}",
+                f"{data.min():.2f}",
+                f"{data.quantile(0.25):.2f}",
+                f"{data.median():.2f}",
+                f"{data.quantile(0.75):.2f}",
+                f"{data.max():.2f}",
+                f"{data.skew():.2f}"
+            ]
+        }
+
+        stats_df = pd.DataFrame(stats_data)
+        st.dataframe(stats_df, use_container_width=True)
+    else:
+        # Print basic statistics in non-Streamlit mode
+        print(f"  Count: {len(data):,}")
+        print(f"  Mean: {data.mean():.2f}")
+        print(f"  Std: {data.std():.2f}")
+        print(f"  Min: {data.min():.2f}")
+        print(f"  Max: {data.max():.2f}")
+
+def create_categorical_visualizations(df: pd.DataFrame, cat_columns: List[str]) -> None:
+    """Enhanced categorical visualizations."""
+
+    if not cat_columns:
+        if STREAMLIT_AVAILABLE:
+            st.info("🏷️ No categorical columns available for visualization.")
+        else:
+            print("No categorical columns available for visualization.")
+        return
+
+    if STREAMLIT_AVAILABLE:
+        st.markdown("### 🏷️ Categorical Analysis")
+
+        # Column selection
+        selected_cols = st.multiselect(
+            "Select categorical columns:",
+            cat_columns,
+            default=cat_columns[:min(3, len(cat_columns))],
+            key=get_unique_key("cat_select")
+        )
+
+        max_categories = st.slider("Max Categories to Display", 5, 50, 15, key=get_unique_key("max_cat"))
+
+        if not selected_cols:
+            st.warning("Please select at least one column.")
+            return
+    else:
+        selected_cols = cat_columns[:3]
+        max_categories = 15
+
+    for col in selected_cols:
+        if STREAMLIT_AVAILABLE:
+            with st.expander(f"📊 Analysis: {col}", expanded=len(selected_cols) == 1):
+                _render_categorical_analysis(df, col, max_categories)
+        else:
+            print(f"\nCategorical Analysis for {col}:")
+            _render_categorical_analysis(df, col, max_categories)
+
+def _render_categorical_analysis(df: pd.DataFrame, col: str, max_categories: int) -> None:
+    """Render categorical analysis for a single column."""
+    value_counts = df[col].value_counts().head(max_categories)
+
+    if value_counts.empty:
+        if STREAMLIT_AVAILABLE:
+            st.warning(f"No data found in column {col}")
+        else:
+            print(f"Warning: No data found in column {col}")
+        return
+
+    if STREAMLIT_AVAILABLE:
+        col1, col2 = st.columns(2)
+
+        with col1:
+            # Pie chart
+            fig = px.pie(
+                values=value_counts.values,
+                names=value_counts.index,
+                title=f"Distribution: {col}",
+                color_discrete_sequence=current_theme.colorway,
+                hole=0.4
+            )
+
+            fig.update_traces(
+                textposition='inside',
+                textinfo='percent+label',
+                textfont_size=10
+            )
+
+            apply_professional_layout(fig, height=400)
+            st.plotly_chart(fig, use_container_width=True, key=get_unique_key(f"pie_{col}"))
+
+        with col2:
+            # Bar chart
+            fig = px.bar(
+                x=value_counts.values,
+                y=value_counts.index,
+                orientation='h',
+                title=f"Top Categories: {col}",
+                color=value_counts.values,
+                color_continuous_scale=current_theme.colorway[0],
+                text=value_counts.values
+            )
+
+            fig.update_traces(texttemplate='%{text:,}', textposition='outside')
+            apply_professional_layout(fig, height=max(300, len(value_counts) * 25))
+            st.plotly_chart(fig, use_container_width=True, key=get_unique_key(f"bar_{col}"))
+
+        # Category statistics
+        unique_count = df[col].nunique()
+        total_count = df[col].count()
+        missing_count = df[col].isnull().sum()
+
+        metric_col1, metric_col2, metric_col3 = st.columns(3)
+        with metric_col1:
+            st.metric("Unique Values", f"{unique_count:,}")
+        with metric_col2:
+            st.metric("Total Records", f"{total_count:,}")
+        with metric_col3:
+            st.metric("Missing Values", f"{missing_count:,}")
+    else:
+        print(f"  Top categories: {value_counts.head().to_dict()}")
+        print(f"  Unique values: {df[col].nunique()}")
+
+def create_business_insights_dashboard(
+    df: pd.DataFrame, 
+    column_types: Dict[str, str]
+) -> None:
+    """Create business intelligence dashboard with actionable insights."""
+
+    if STREAMLIT_AVAILABLE:
+        st.markdown("### 💼 Business Intelligence Dashboard")
+    else:
+        print("Business Intelligence Dashboard")
+
+    numeric_cols = [c for c, t in column_types.items() if t in ["num", "numeric", "float", "int"] and c in df.columns]
+    categorical_cols = [c for c, t in column_types.items() if t in ["cat", "categorical", "object", "string"] and c in df.columns]
+
+    if STREAMLIT_AVAILABLE:
+        # Business context setup
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            revenue_col = st.selectbox("Revenue/Value Column:", ["None"] + numeric_cols, key=get_unique_key("revenue"))
+        with col2:
+            date_col = st.selectbox("Date Column:", ["None"] + list(df.columns), key=get_unique_key("date"))
+        with col3:
+            category_col = st.selectbox("Category Column:", ["None"] + categorical_cols, key=get_unique_key("category"))
+
+        # Convert "None" to None
+        revenue_col = None if revenue_col == "None" else revenue_col
+        date_col = None if date_col == "None" else date_col
+        category_col = None if category_col == "None" else category_col
+    else:
+        revenue_col = numeric_cols[0] if numeric_cols else None
+        date_col = None
+        category_col = categorical_cols[0] if categorical_cols else None
+
+    # Revenue analysis
+    if revenue_col and revenue_col in df.columns:
+        _create_revenue_analysis(df, revenue_col)
+
+    # Category performance analysis
+    if category_col and category_col in df.columns:
+        _create_category_performance_analysis(df, category_col, revenue_col)
+
+def _create_revenue_analysis(df: pd.DataFrame, revenue_col: str) -> None:
+    """Create revenue analysis section."""
+    if STREAMLIT_AVAILABLE:
+        st.markdown("#### 💰 Revenue Analysis")
+
+        col1, col2, col3, col4 = st.columns(4)
+
+        with col1:
+            total_revenue = df[revenue_col].sum()
+            st.metric("Total Revenue", f"${total_revenue:,.0f}")
+
+        with col2:
+            avg_revenue = df[revenue_col].mean()
+            st.metric("Average Revenue", f"${avg_revenue:,.0f}")
+
+        with col3:
+            median_revenue = df[revenue_col].median()
+            st.metric("Median Revenue", f"${median_revenue:,.0f}")
+
+        with col4:
+            revenue_std = df[revenue_col].std()
+            cv = (revenue_std / avg_revenue) * 100 if avg_revenue != 0 else 0
+            st.metric("Variability (CV)", f"{cv:.1f}%")
+
+        # Revenue distribution
+        fig = px.histogram(
+            df,
+            x=revenue_col,
+            nbins=30,
+            title="Revenue Distribution",
+            color_discrete_sequence=[current_theme.accent_primary]
+        )
+
+        avg_revenue = df[revenue_col].mean()
+        median_revenue = df[revenue_col].median()
+
+        fig.add_vline(x=avg_revenue, line_dash="dash", line_color=current_theme.warning_color, 
+                     annotation_text="Mean")
+        fig.add_vline(x=median_revenue, line_dash="dot", line_color=current_theme.success_color,
+                     annotation_text="Median")
+
+        apply_professional_layout(fig, height=400)
+        st.plotly_chart(fig, use_container_width=True, key=get_unique_key("revenue_dist"))
+    else:
+        total_revenue = df[revenue_col].sum()
+        avg_revenue = df[revenue_col].mean()
+        print(f"Revenue Analysis:")
+        print(f"  Total: ${total_revenue:,.0f}")
+        print(f"  Average: ${avg_revenue:,.0f}")
+
+def _create_category_performance_analysis(df: pd.DataFrame, category_col: str, revenue_col: Optional[str] = None) -> None:
+    """Create category performance analysis."""
+    if STREAMLIT_AVAILABLE:
+        st.markdown("#### 📊 Category Performance")
+    else:
+        print("Category Performance Analysis:")
+
+    if revenue_col and revenue_col in df.columns:
+        # Revenue by category
+        category_revenue = df.groupby(category_col)[revenue_col].agg(['sum', 'mean', 'count']).reset_index()
+        category_revenue.columns = [category_col, 'Total Revenue', 'Avg Revenue', 'Count']
+        category_revenue = category_revenue.sort_values('Total Revenue', ascending=False)
+
+        if STREAMLIT_AVAILABLE:
+            col1, col2 = st.columns(2)
+
             with col1:
                 fig = px.bar(
-                    top_out,
-                    x="Outlier %",
-                    y="Column",
-                    orientation="h",
-                    color="Outlier %",
-                    color_continuous_scale=CONTINUOUS_SCALE,
-                    title="Top Outlier Rates by Column",
+                    category_revenue.head(10),
+                    x='Total Revenue',
+                    y=category_col,
+                    orientation='h',
+                    title="Total Revenue by Category (Top 10)",
+                    color='Total Revenue',
+                    color_continuous_scale="Blues"
                 )
-                fig.update_traces(text=top_out["Outlier %"].round(1), textposition="outside")
-                _enhance_bars(fig)
-                _apply_dark_layout(fig, height=360)
-                fig.update_layout(margin=dict(r=70))
-                st.plotly_chart(fig, use_container_width=True, key=_uniq(f"{kp}_outliers"))
+                apply_professional_layout(fig, height=400)
+                st.plotly_chart(fig, use_container_width=True, key=get_unique_key("category_revenue"))
+
             with col2:
-                st.dataframe(top_out, use_container_width=True, height=360)
+                fig = px.bar(
+                    category_revenue.head(10),
+                    x='Avg Revenue',
+                    y=category_col,
+                    orientation='h',
+                    title="Average Revenue by Category (Top 10)",
+                    color='Avg Revenue',
+                    color_continuous_scale="Greens"
+                )
+                apply_professional_layout(fig, height=400)
+                st.plotly_chart(fig, use_container_width=True, key=get_unique_key("category_avg"))
+
+            st.dataframe(category_revenue.head(15), use_container_width=True)
         else:
-            st.info("No numerical data to analyze outliers.")
+            print(f"  Top categories by revenue: {category_revenue.head(3).to_dict('records')}")
+
+def create_advanced_analysis(df: pd.DataFrame, column_types: Dict[str, str]) -> None:
+    """Enhanced advanced analysis with multiple analytical approaches."""
+
+    if STREAMLIT_AVAILABLE:
+        st.markdown("### 🔬 Advanced Data Analysis")
+
+        analysis_tabs = st.tabs([
+            "🎯 Outlier Detection", 
+            "🔗 Correlation Analysis", 
+            "💼 Business Intelligence",
+            "📊 Data Quality Patterns"
+        ])
+
+        numeric_cols = [c for c, t in column_types.items() if t in ["num", "numeric", "float", "int"] and c in df.columns]
+
+        with analysis_tabs[0]:
+            if numeric_cols:
+                _create_outlier_analysis(df, numeric_cols)
+            else:
+                st.info("No numeric columns available for outlier analysis.")
+
+        with analysis_tabs[1]:
+            if len(numeric_cols) >= 2:
+                _create_correlation_analysis(df, numeric_cols)
+            else:
+                st.info("Need at least 2 numeric columns for correlation analysis.")
+
+        with analysis_tabs[2]:
+            create_business_insights_dashboard(df, column_types)
+
+        with analysis_tabs[3]:
+            _create_data_quality_patterns(df, column_types)
     else:
-        st.info("No numerical columns available.")
+        print("Advanced Data Analysis:")
+        numeric_cols = [c for c, t in column_types.items() if t in ["num", "numeric", "float", "int"] and c in df.columns]
+        if numeric_cols:
+            _create_outlier_analysis(df, numeric_cols)
+        if len(numeric_cols) >= 2:
+            _create_correlation_analysis(df, numeric_cols)
 
-    st.markdown("---")
+def _create_outlier_analysis(df: pd.DataFrame, columns: List[str]) -> None:
+    """Create comprehensive outlier analysis."""
 
-    # 2) Scatter matrix (sampled)
-    st.markdown("### 🔬 Scatter Matrix")
-    if len(num_cols) >= 2:
-        sm_cols = num_cols[:5]
-        sample_n = min(1000, len(df))
-        sample_df = df.sample(sample_n, random_state=42) if len(df) > sample_n else df
-        fig = px.scatter_matrix(sample_df, dimensions=sm_cols, color=None, title="Scatter Matrix (sampled)")
-        _apply_dark_layout(fig, height=520, hovermode=None)
-        st.plotly_chart(fig, use_container_width=True, key=_uniq(f"{kp}_scatter_matrix"))
+    if STREAMLIT_AVAILABLE:
+        st.markdown("#### 🎯 Outlier Detection")
+
+        method = st.selectbox(
+            "Detection Method:",
+            ["IQR Method", "Z-Score", "Modified Z-Score"],
+            key=get_unique_key("outlier_method")
+        )
     else:
-        st.info("Need at least 2 numerical columns for a scatter matrix.")
+        method = "IQR Method"
+        print("Outlier Detection (IQR Method):")
 
-    st.markdown("---")
+    outlier_results = []
 
-    # 3) Distribution by category
-    st.markdown("### 🧩 Distribution by Category")
-    if num_cols and cat_cols:
-        c1, c2, c3 = st.columns([1.5, 1.5, 1])
-        with c1:
-            num_col = st.selectbox("Numerical Column", num_cols, key=f"{kp}_adv_num_col")
-        with c2:
-            cat_col = st.selectbox("Category Column", cat_cols, key=f"{kp}_adv_cat_col")
-        with c3:
-            plot_mode = st.selectbox("Plot", ["Box", "Violin"], key=f"{kp}_adv_plot_mode")
-        dfp = _maybe_sample(df)
-        if plot_mode == "Box":
-            fig = px.box(
-                dfp,
-                x=cat_col,
-                y=num_col,
-                color=cat_col,
-                color_discrete_sequence=COLORWAY,
-                title=f"{num_col} by {cat_col}",
-                points="outliers",
-            )
+    for col in columns[:5]:  # Limit to 5 columns for performance
+        data = df[col].dropna()
+
+        if len(data) < 10:
+            continue
+
+        outliers = _detect_outliers(data, method)
+        outlier_count = outliers.sum()
+        outlier_pct = (outlier_count / len(data)) * 100
+
+        outlier_results.append({
+            'Column': col,
+            'Total Values': len(data),
+            'Outliers': outlier_count,
+            'Outlier %': f"{outlier_pct:.2f}%",
+            'Min Outlier': data[outliers].min() if outlier_count > 0 else 'N/A',
+            'Max Outlier': data[outliers].max() if outlier_count > 0 else 'N/A'
+        })
+
+    if outlier_results:
+        results_df = pd.DataFrame(outlier_results)
+        if STREAMLIT_AVAILABLE:
+            st.dataframe(results_df, use_container_width=True)
         else:
-            fig = px.violin(
-                dfp,
-                x=cat_col,
-                y=num_col,
-                color=cat_col,
-                color_discrete_sequence=COLORWAY,
-                title=f"{num_col} by {cat_col}",
-                box=True,
-                points=False,
-            )
-        _apply_dark_layout(fig, height=460)
-        st.plotly_chart(fig, use_container_width=True, key=_uniq(f"{kp}_dist_by_cat"))
+            print(f"  Outlier summary: {results_df.to_dict('records')}")
+
+def _detect_outliers(data: pd.Series, method: str) -> pd.Series:
+    """Detect outliers using various methods."""
+
+    if method == "IQR Method":
+        Q1 = data.quantile(0.25)
+        Q3 = data.quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+        return (data < lower_bound) | (data > upper_bound)
+
+    elif method == "Z-Score":
+        z_scores = np.abs((data - data.mean()) / data.std())
+        return z_scores > 3
+
+    elif method == "Modified Z-Score":
+        median = data.median()
+        mad = np.median(np.abs(data - median))
+        if mad == 0:
+            return pd.Series([False] * len(data), index=data.index)
+        modified_z_scores = 0.6745 * (data - median) / mad
+        return np.abs(modified_z_scores) > 3.5
+
+    return pd.Series([False] * len(data), index=data.index)
+
+def _create_correlation_analysis(df: pd.DataFrame, columns: List[str]) -> None:
+    """Create correlation analysis."""
+
+    if STREAMLIT_AVAILABLE:
+        st.markdown("#### 🔗 Correlation Analysis")
     else:
-        st.info("Select at least one numerical and one categorical column to compare distributions.")
+        print("Correlation Analysis:")
+
+    if len(columns) < 2:
+        if STREAMLIT_AVAILABLE:
+            st.warning("Need at least 2 numeric columns for correlation analysis.")
+        else:
+            print("  Warning: Need at least 2 numeric columns")
+        return
+
+    # Calculate correlation matrix
+    corr_matrix = df[columns].corr()
+
+    if STREAMLIT_AVAILABLE:
+        # Correlation heatmap
+        fig = px.imshow(
+            corr_matrix,
+            title="Correlation Matrix",
+            color_continuous_scale="RdBu",
+            zmin=-1, zmax=1,
+            text_auto=True
+        )
+        apply_professional_layout(fig, height=500)
+        st.plotly_chart(fig, use_container_width=True, key=get_unique_key("correlation_heatmap"))
+
+        # Strong correlations
+        strong_corr = []
+        for i in range(len(corr_matrix.columns)):
+            for j in range(i+1, len(corr_matrix.columns)):
+                corr_val = corr_matrix.iloc[i, j]
+                if abs(corr_val) > 0.7:
+                    strong_corr.append({
+                        'Variable 1': corr_matrix.columns[i],
+                        'Variable 2': corr_matrix.columns[j],
+                        'Correlation': round(corr_val, 3)
+                    })
+
+        if strong_corr:
+            st.markdown("**🔗 Strong Correlations (|r| > 0.7):**")
+            corr_df = pd.DataFrame(strong_corr).sort_values('Correlation', key=abs, ascending=False)
+            st.dataframe(corr_df, use_container_width=True)
+    else:
+        print(f"  Correlation matrix computed for {len(columns)} columns")
+
+def _create_data_quality_patterns(df: pd.DataFrame, column_types: Dict[str, str]) -> None:
+    """Create data quality pattern analysis."""
+
+    if STREAMLIT_AVAILABLE:
+        st.markdown("#### 📊 Data Quality Patterns")
+    else:
+        print("Data Quality Patterns:")
+
+    categorical_cols = [c for c, t in column_types.items() if t in ["cat", "categorical", "object", "string"] and c in df.columns]
+
+    quality_patterns = {
+        'Missing Data Points': int(df.isnull().sum().sum()),
+        'Duplicate Records': int(df.duplicated().sum()),
+        'Constant Columns': len([col for col in df.columns if df[col].nunique() <= 1]),
+        'High Cardinality Columns': len([col for col in categorical_cols if df[col].nunique() > len(df) * 0.8]),
+        'Empty Columns': len([col for col in df.columns if df[col].isnull().all()])
+    }
+
+    if STREAMLIT_AVAILABLE:
+        quality_df = pd.DataFrame(list(quality_patterns.items()), columns=['Pattern', 'Count'])
+
+        fig = px.bar(
+            quality_df,
+            x='Count',
+            y='Pattern',
+            orientation='h',
+            title="Data Quality Patterns Detected",
+            color='Count',
+            color_continuous_scale="Reds"
+        )
+
+        apply_professional_layout(fig, height=350)
+        st.plotly_chart(fig, use_container_width=True, key=get_unique_key("quality_patterns"))
+
+        # Quality recommendations
+        recommendations = []
+
+        if quality_patterns['Missing Data Points'] > len(df) * 0.1:
+            recommendations.append("🔧 High number of missing values - implement data validation at source")
+
+        if quality_patterns['Duplicate Records'] > 0:
+            recommendations.append("🔄 Remove duplicate records to improve data quality")
+
+        if quality_patterns['Constant Columns'] > 0:
+            recommendations.append("📊 Remove constant columns as they provide no analytical value")
+
+        if quality_patterns['High Cardinality Columns'] > 0:
+            recommendations.append("🏷️ High cardinality columns may need grouping or encoding")
+
+        if not recommendations:
+            recommendations.append("✅ Data quality is good! Continue current practices")
+
+        st.markdown("**💡 Quality Recommendations:**")
+        for rec in recommendations:
+            st.markdown(f"• {rec}")
+    else:
+        print(f"  Quality patterns: {quality_patterns}")
+
+# ============================
+# BACKWARD COMPATIBILITY FUNCTIONS
+# ============================
+
+def create_data_overview_dashboard(df: pd.DataFrame, column_types: Dict[str, str]) -> None:
+    """Backward compatible data overview dashboard."""
+    create_enhanced_data_overview_dashboard(df, column_types)
+
+def create_compact_missing_overview(df: pd.DataFrame) -> None:
+    """Backward compatible missing value overview."""
+    create_advanced_missing_value_analysis(df)
+
+def create_numerical_visualizations(df: pd.DataFrame, num_columns: List[str]) -> None:
+    """Backward compatible numerical visualizations."""
+    create_statistical_distribution_analysis(df, num_columns)
+
+# ============================
+# EXPORTS
+# ============================
+
+__all__ = [
+    'create_enhanced_data_overview_dashboard',
+    'create_advanced_missing_value_analysis',
+    'create_statistical_distribution_analysis',
+    'create_categorical_visualizations',
+    'create_business_insights_dashboard',
+    'create_advanced_analysis',
+    'set_theme',
+    'apply_professional_layout',
+    'render_header',
+    'render_kpi_metrics',
+    # Backward compatibility
+    'create_data_overview_dashboard',
+    'create_compact_missing_overview',
+    'create_numerical_visualizations'
+]
