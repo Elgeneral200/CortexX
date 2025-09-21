@@ -126,109 +126,370 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# ============================
+# ENHANCED DARK THEME STYLING
+# ============================
 
-
-
-
-import streamlit as st
-import base64
-
-# Function to encode local image to base64
-def get_base64_image(image_path):
-    with open(image_path, "rb") as img_file:
-        return base64.b64encode(img_file.read()).decode()
-
-# Sidebar styling
-st.sidebar.markdown(
-    """
+def load_enterprise_dark_theme():
+    """Load world-class enterprise dark theme CSS."""
+    st.markdown("""
     <style>
-    .sidebar .sidebar-content {
-        background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    /* Global Dark Theme */
+    .main {
+        background-color: #0f172a;
+        color: #e2e8f0;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     }
-    .logo-container {
+    
+    /* Main Container */
+    .main .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+        background-color: #0f172a;
+    }
+    
+    /* Header Styles */
+    .enterprise-header {
+        background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+        padding: 2.5rem;
+        border-radius: 16px;
+        margin-bottom: 2rem;
         text-align: center;
-        padding: 1.5rem 0 1rem 0;
-        border-bottom: 1px solid #e2e8f0;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        position: relative;
+        overflow: hidden;
+        border: 1px solid #334155;
+    }
+    
+    .enterprise-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        opacity: 0.1;
+    }
+    
+    .enterprise-header h1 {
+        color: #e2e8f0;
+        font-size: 2.8rem;
+        font-weight: 800;
+        margin: 0;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        letter-spacing: -0.5px;
+    }
+    
+    .enterprise-header p {
+        color: #94a3b8;
+        font-size: 1.2rem;
+        margin: 1rem 0 0 0;
+        font-weight: 500;
+    }
+    
+    /* Feature Badges */
+    .feature-badge {
+        display: inline-block;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        margin: 0.2rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        background: rgba(255,255,255,0.1);
+        color: #e2e8f0;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,0.15);
+    }
+    
+    .feature-badge.working {
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.3), rgba(16, 185, 129, 0.2));
+        color: #10b981;
+        border-color: rgba(16, 185, 129, 0.3);
+    }
+    
+    .feature-badge.basic {
+        background: linear-gradient(135deg, rgba(245, 158, 11, 0.3), rgba(245, 158, 11, 0.2));
+        color: #f59e0b;
+        border-color: rgba(245, 158, 11, 0.3);
+    }
+    
+    /* Metric Cards */
+    [data-testid="metric-container"] {
+        background: linear-gradient(135deg, #1e293b 0%, #1a2438 100%);
+        border: 1px solid #334155;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        transition: all 0.3s ease;
+    }
+    
+    [data-testid="metric-container"]:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        border-color: #4f6ba8;
+    }
+    
+    [data-testid="metric-container"] .stMetricLabel {
+        font-size: 0.9rem;
+        color: #94a3b8;
+        font-weight: 600;
+    }
+    
+    [data-testid="metric-container"] .stMetricValue {
+        font-size: 1.8rem;
+        color: #e2e8f0;
+        font-weight: 700;
+    }
+    
+    [data-testid="metric-container"] .stMetricDelta {
+        font-size: 0.9rem;
+        font-weight: 600;
+    }
+    
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+        background: transparent;
+        padding: 0;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        background: #1e293b;
+        border-radius: 8px 8px 0 0;
+        padding: 1rem 1.5rem;
+        font-weight: 600;
+        color: #94a3b8;
+        transition: all 0.3s ease;
+        border: 1px solid #334155;
+        border-bottom: none;
+    }
+    
+    .stTabs [data-baseweb="tab"]:hover {
+        background: #2d3748;
+        color: #e2e8f0;
+    }
+    
+    .stTabs [data-baseweb="tab"][aria-selected="true"] {
+        background: #1a2438;
+        color: #60a5fa;
+        box-shadow: 0 -4px 12px rgba(0,0,0,0.2);
+        border-color: #4f6ba8;
+    }
+    
+    /* Buttons */
+    .stButton > button {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        border: none;
+        border-radius: 8px;
+        color: white;
+        font-weight: 600;
+        padding: 0.75rem 1.5rem;
+        transition: all 0.3s ease;
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    }
+    
+    /* Success, Error, Warning */
+    .stSuccess {
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.1));
+        border-left: 4px solid #10b981;
+        border-radius: 8px;
+        padding: 1rem;
+        color: #e2e8f0;
+        border-color: #10b981;
+    }
+    
+    .stError {
+        background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.1));
+        border-left: 4px solid #ef4444;
+        border-radius: 8px;
+        padding: 1rem;
+        color: #e2e8f0;
+        border-color: #ef4444;
+    }
+    
+    .stWarning {
+        background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(245, 158, 11, 0.1));
+        border-left: 4px solid #f59e0b;
+        border-radius: 8px;
+        padding: 1rem;
+        color: #e2e8f0;
+        border-color: #f59e0b;
+    }
+    
+    /* Expanders */
+    .streamlit-expanderHeader {
+        font-weight: 600;
+        color: #e2e8f0;
+        background: #1e293b;
+        border-radius: 8px;
+        padding: 1rem;
+        border: 1px solid #334155;
+    }
+    
+    .streamlit-expanderContent {
+        background: #1a2438;
+        border: 1px solid #334155;
+        border-top: none;
+        border-radius: 0 0 8px 8px;
+        padding: 1rem;
+    }
+    
+    /* Dataframes */
+    .stDataFrame {
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        border: 1px solid #334155;
+    }
+    
+    /* Hide elements */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    
+    /* Animations */
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+    }
+    
+    @keyframes float {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-5px); }
+    }
+    
+    .fade-in { 
+        animation: fadeIn 0.6s ease-in; 
+    }
+    
+    .pulse {
+        animation: pulse 2s infinite;
+    }
+    
+    .float {
+        animation: float 3s ease-in-out infinite;
+    }
+    
+    /* Sidebar enhancements */
+    .sidebar .sidebar-content {
+        background: linear-gradient(180deg, #1e293b 0%, #1a2438 100%);
+        color: #e2e8f0;
+    }
+    
+    /* Custom cards */
+    .enterprise-card {
+        background: linear-gradient(135deg, #1e293b 0%, #1a2438 100%);
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        border: 1px solid #334155;
         margin-bottom: 1.5rem;
     }
-    .caption {
-        font-size: 1.25rem;
+    
+    .enterprise-card h3 {
+        margin-top: 0;
+        color: #e2e8f0;
         font-weight: 700;
-        color: #2563eb;  /* Changed to a brighter blue for better visibility */
-        margin-top: 0.75rem;
-        letter-spacing: 0.5px;
-        text-shadow: 0px 1px 2px rgba(0,0,0,0.05);
+        border-bottom: 2px solid #334155;
+        padding-bottom: 0.75rem;
     }
-    .tagline {
-        font-size: 0.9rem;
-        color: #64748b;
-        margin-top: 0.25rem;
+    
+    /* Footer */
+    .enterprise-footer {
+        text-align: center;
+        margin-top: 3rem;
+        padding: 2rem;
+        background: linear-gradient(135deg, #1e293b 0%, #1a2438 100%);
+        border-radius: 12px;
+        border: 1px solid #334155;
+    }
+    
+    .enterprise-footer h4 {
+        color: #e2e8f0;
         margin-bottom: 0.5rem;
+        font-weight: 700;
     }
-    .about-section {
-        background-color: #ffffff;
+    
+    .enterprise-footer p {
+        color: #94a3b8;
+        margin: 0;
+    }
+    
+    /* Status indicators */
+    .status-indicator {
+        display: flex;
+        align-items: center;
+        padding: 0.75rem;
         border-radius: 8px;
-        padding: 1.25rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        border-left: 4px solid #6366f1;
-        margin-top: 1.5rem;
+        margin-bottom: 0.5rem;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid #334155;
     }
-    .about-header {
-        font-size: 1.1rem;
-        font-weight: 600;
-        color: #2563eb;  /* Matching the new blue color */
-        margin-bottom: 0.75rem;
+    
+    .status-indicator.available {
+        border-left: 4px solid #10b981;
     }
-    .about-content {
+    
+    .status-indicator.unavailable {
+        border-left: 4px solid #ef4444;
+    }
+    
+    .status-icon {
+        margin-right: 0.75rem;
+        font-size: 1.2rem;
+    }
+    
+    .status-content {
+        flex: 1;
+    }
+    
+    .status-content h4 {
+        margin: 0;
         font-size: 0.9rem;
-        color: #475569;
-        line-height: 1.5;
+        color: #e2e8f0;
+    }
+    
+    .status-content p {
+        margin: 0;
+        font-size: 0.8rem;
+        color: #94a3b8;
+    }
+    
+    /* Global company branding */
+    .global-watermark {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        opacity: 0.1;
+        font-size: 5rem;
+        font-weight: 900;
+        color: #e2e8f0;
+        z-index: -1;
+        pointer-events: none;
     }
     </style>
-    """,
-    unsafe_allow_html=True
-)
+    """, unsafe_allow_html=True)
 
-# Logo display with enhanced styling
-logo_base64 = get_base64_image(r"D:\cortexx-forecasting\datacleaning_tool\assets\logo.png")
+# Load CSS
+load_enterprise_dark_theme()
 
-st.sidebar.markdown(
-    f"""
-    <div class="logo-container">
-        <img src="data:image/png;base64,{logo_base64}" width="150">
-        <div class="caption">CortexX Platform</div>
-        <div class="tagline">Advanced Data Forecasting & Analytics</div>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-# About section
-st.sidebar.markdown(
-    """
-    <div class="about-section">
-        <div class="about-header">About CortexX</div>
-        <div class="about-content">
-            CortexX Platform provides enterprise-grade data forecasting 
-            and analytics capabilities. Our AI-powered tools help businesses 
-            transform raw data into actionable insights for strategic decision-making.
-        </div>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-# Add a subtle footer with updated year
-st.sidebar.markdown(
-    """
-    <div style='text-align: center; margin-top: 2rem; color: #94a3b8; font-size: 0.75rem;'>
-        © 2025 CortexX Company. All rights reserved.
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-
+# Add global watermark
+st.markdown('<div class="global-watermark">CORTEXX</div>', unsafe_allow_html=True)
 
 # ============================
 # UTILITY FUNCTIONS
@@ -290,170 +551,213 @@ def key_of(name: str) -> str:
     return f"{st.session_state['viz_session']}_{name}"
 
 # ============================
-# STYLES (unchanged)
+# SIDEBAR ENHANCEMENTS
 # ============================
 
-def load_enhanced_professional_css():
-    """Load enhanced professional CSS styling."""
-    st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+def render_enterprise_sidebar():
+    """Render enterprise-grade sidebar with enhanced feature status."""
+    # Function to encode local image to base64
+    def get_base64_image(image_path):
+        try:
+            with open(image_path, "rb") as img_file:
+                return base64.b64encode(img_file.read()).decode()
+        except:
+            return None
 
-    :root {
-        --primary-color: #0f172a;
-        --secondary-color: #1e293b;
-        --accent-color: #3b82f6;
-        --success-color: #10b981;
-        --warning-color: #f59e0b;
-        --error-color: #ef4444;
-        --text-primary: #f8fafc;
-        --gradient-business: linear-gradient(135deg, #00d4ff 0%, #00ff88 100%);
-        --shadow-primary: 0 10px 25px rgba(0,0,0,0.2);
-        --border-radius: 12px;
-    }
+    # Sidebar styling
+    st.sidebar.markdown(
+        """
+        <style>
+        .sidebar .sidebar-content {
+            background: linear-gradient(180deg, #1e293b 0%, #1a2438 100%);
+            color: #e2e8f0;
+        }
+        .logo-container {
+            text-align: center;
+            padding: 1.5rem 0 1rem 0;
+            border-bottom: 1px solid #334155;
+            margin-bottom: 1.5rem;
+        }
+        .caption {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #60a5fa;
+            margin-top: 0.75rem;
+            letter-spacing: 0.5px;
+        }
+        .tagline {
+            font-size: 0.9rem;
+            color: #94a3b8;
+            margin-top: 0.25rem;
+            margin-bottom: 0.5rem;
+        }
+        .about-section {
+            background: linear-gradient(135deg, #1e293b 0%, #1a2438 100%);
+            border-radius: 8px;
+            padding: 1.25rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            border-left: 4px solid #6366f1;
+            margin-top: 1.5rem;
+            border: 1px solid #334155;
+        }
+        .about-header {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #60a5fa;
+            margin-bottom: 0.75rem;
+        }
+        .about-content {
+            font-size: 0.9rem;
+            color: #94a3b8;
+            line-height: 1.5;
+        }
+        .sidebar-section {
+            margin-bottom: 1.5rem;
+        }
+        .sidebar-section h3 {
+            font-size: 1rem;
+            color: #e2e8f0;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #334155;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
 
-    .main {
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-        background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
-        color: var(--text-primary);
-        min-height: 100vh;
-    }
+    # Logo display with enhanced styling
+    logo_base64 = get_base64_image(r"D:\cortexx-forecasting\datacleaning_tool\assets\logo.png")
+    
+    if logo_base64:
+        st.sidebar.markdown(
+            f"""
+            <div class="logo-container">
+                <img src="data:image/png;base64,{logo_base64}" width="150">
+                <div class="caption">CortexX Platform</div>
+                <div class="tagline">Enterprise Data Intelligence</div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+    else:
+        st.sidebar.markdown(
+            """
+            <div class="logo-container">
+                <div class="caption">CortexX Platform</div>
+                <div class="tagline">Enterprise Data Intelligence</div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
-    .main-header {
-        background: var(--gradient-business);
-        padding: 3rem;
-        border-radius: var(--border-radius);
-        margin-bottom: 2rem;
-        text-align: center;
-        box-shadow: var(--shadow-primary);
-        position: relative;
-        overflow: hidden;
-    }
+    # File upload section
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### 📁 Data Upload")
+    
+    uploaded_file = st.sidebar.file_uploader(
+        "Upload your dataset",
+        type=['csv', 'xlsx', 'xls', 'json'],
+        help="Supported formats: CSV, Excel (XLSX/XLS), JSON",
+        label_visibility="collapsed"
+    )
+    
+    # Enhanced Feature Status
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### 🎯 Platform Features")
+    
+    # EDA Status
+    if VISUALIZATION_ENHANCED:
+        st.sidebar.markdown("""
+        <div class="status-indicator available">
+            <div class="status-icon">📊</div>
+            <div class="status-content">
+                <h4>Exploratory Data Analysis</h4>
+                <p>Enhanced visualization & analytics</p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.sidebar.markdown("""
+        <div class="status-indicator unavailable">
+            <div class="status-icon">📊</div>
+            <div class="status-content">
+                <h4>Exploratory Data Analysis</h4>
+                <p>Basic functionality only</p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Cleaning Status
+    if PREPROCESSING_ENHANCED:
+        st.sidebar.markdown("""
+        <div class="status-indicator available">
+            <div class="status-icon">🧹</div>
+            <div class="status-content">
+                <h4>Data Cleaning</h4>
+                <p>Advanced preprocessing pipeline</p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.sidebar.markdown("""
+        <div class="status-indicator unavailable">
+            <div class="status-icon">🧹</div>
+            <div class="status-content">
+                <h4>Data Cleaning</h4>
+                <p>Basic functionality only</p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # BI Status
+    if BUSINESS_INTELLIGENCE_AVAILABLE:
+        st.sidebar.markdown("""
+        <div class="status-indicator available">
+            <div class="status-icon">📈</div>
+            <div class="status-content">
+                <h4>Business Intelligence</h4>
+                <p>Advanced analytics & dashboards</p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.sidebar.markdown("""
+        <div class="status-indicator unavailable">
+            <div class="status-icon">📈</div>
+            <div class="status-content">
+                <h4>Business Intelligence</h4>
+                <p>Basic functionality only</p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
-    .main-header h1 {
-        color: white;
-        font-size: 3.5rem;
-        font-weight: 800;
-        margin: 0;
-        text-shadow: 0 4px 8px rgba(0,0,0,0.3);
-    }
+    # About section
+    st.sidebar.markdown("---")
+    st.sidebar.markdown(
+        """
+        <div class="about-section">
+            <div class="about-header">Global Enterprise Platform</div>
+            <div class="about-content">
+                CortexX delivers world-class data intelligence solutions to Fortune 500 companies worldwide. Our AI-powered platform transforms complex data into actionable business insights.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
-    .main-header p {
-        color: rgba(255,255,255,0.95);
-        font-size: 1.4rem;
-        margin: 1rem 0 0 0;
-        font-weight: 500;
-    }
-
-    .feature-badge {
-        display: inline-block;
-        padding: 0.5rem 1rem;
-        border-radius: 20px;
-        font-size: 0.8rem;
-        font-weight: 600;
-        margin: 0.2rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-
-    .feature-badge.working {
-        background: var(--success-color);
-        color: white;
-        animation: pulse 2s infinite;
-    }
-
-    .feature-badge.basic {
-        background: var(--warning-color);
-        color: white;
-    }
-
-    @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.7; }
-    }
-
-    [data-testid="metric-container"] {
-        background: linear-gradient(135deg, var(--secondary-color), #374151);
-        border: 1px solid rgba(59, 130, 246, 0.3);
-        border-radius: var(--border-radius);
-        padding: 1.5rem;
-        box-shadow: var(--shadow-primary);
-        transition: all 0.3s ease;
-    }
-
-    [data-testid="metric-container"]:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-    }
-
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        background: var(--secondary-color);
-        padding: 0.5rem;
-        border-radius: var(--border-radius);
-    }
-
-    .stTabs [data-baseweb="tab"] {
-        border-radius: 8px;
-        padding: 1rem 2rem;
-        font-weight: 600;
-        transition: all 0.3s ease;
-    }
-
-    .stTabs [data-baseweb="tab"][aria-selected="true"] {
-        background: linear-gradient(135deg, #667eea, #764ba2);
-        color: white;
-        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-    }
-
-    .stButton > button {
-        background: linear-gradient(135deg, #667eea, #764ba2);
-        border: none;
-        border-radius: var(--border-radius);
-        color: white;
-        font-weight: 600;
-        padding: 0.75rem 2rem;
-        transition: all 0.3s ease;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-
-    .stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-primary);
-    }
-
-    .stSuccess {
-        background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.05));
-        border-left: 4px solid var(--success-color);
-        border-radius: var(--border-radius);
-    }
-
-    .stError {
-        background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(239, 68, 68, 0.05));
-        border-left: 4px solid var(--error-color);
-        border-radius: var(--border-radius);
-    }
-
-    .stWarning {
-        background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(245, 158, 11, 0.05));
-        border-left: 4px solid var(--warning-color);
-        border-radius: var(--border-radius);
-    }
-
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-
-    .fade-in { animation: fadeIn 0.6s ease-in; }
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(20px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-load_enhanced_professional_css()
+    # Add a subtle footer with updated year
+    st.sidebar.markdown("---")
+    st.sidebar.markdown(
+        """
+        <div style='text-align: center; margin-top: 1rem; color: #64748b; font-size: 0.75rem;'>
+            © 2025 CortexX Global Inc. All rights reserved.
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    
+    return uploaded_file
 
 # ============================
 # DATA LOADING FUNCTIONS
@@ -571,8 +875,8 @@ def calculate_enhanced_quality_score(df: pd.DataFrame) -> float:
 # UI COMPONENTS
 # ============================
 
-def render_enhanced_header():
-    """Render enhanced header with real feature status."""
+def render_enterprise_header():
+    """Render enterprise-grade header with real feature status."""
     feature_badges = []
     
     if VISUALIZATION_ENHANCED:
@@ -590,83 +894,87 @@ def render_enhanced_header():
     else:
         feature_badges.append('<span class="feature-badge basic">⚠️ Basic BI</span>')
     
-    feature_badges.append('<span class="feature-badge working">AI-Powered</span>')
+    feature_badges.append('<span class="feature-badge pulse">🌍 Global Platform</span>')
     
     st.markdown(f"""
-    <div class="main-header fade-in">
-        <h1>CortexX Sales & Demand Forecasting Platform</h1>
-        <p>Professional Business Intelligence with Phase 1 Features</p>
+    <div class="enterprise-header fade-in">
+        <h1>CortexX Enterprise Intelligence Platform</h1>
+        <p>World-Class Data Analytics & Forecasting Solutions</p>
         <div style="margin-top: 1.5rem;">
             {''.join(feature_badges)}
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-def render_enhanced_welcome_screen():
-    """Render enhanced welcome screen with feature status."""
+def render_enterprise_welcome_screen():
+    """Render enterprise-grade welcome screen with feature status."""
     st.markdown("""
     <div class="fade-in">
-
-    ### 👋 Welcome to Next-Generation Sales Analytics
-
-    Upload your sales data to unlock AI-powered insights, automated analysis, and professional forecasting
-
-    **Supported: CSV, Excel (XLSX/XLS), JSON files**
-
-    ---
-
+    <div class="enterprise-card float">
+        <h3>👋 Welcome to CortexX Enterprise Platform</h3>
+        <p>Upload your business data to unlock AI-powered insights, predictive analytics, and enterprise-grade forecasting</p>
+        <p><strong>Supported: CSV, Excel (XLSX/XLS), JSON files</strong></p>
+    </div>
     </div>
     """, unsafe_allow_html=True)
 
     # Feature status showcase
-    st.markdown("### 🎯 Phase 1 Features Status")
+    st.markdown("### 🎯 Enterprise Capabilities")
     
     col1, col2, col3 = st.columns(3)
 
     with col1:
+        card = st.container()
+        card.markdown("<div class='enterprise-card'>", unsafe_allow_html=True)
         if VISUALIZATION_ENHANCED:
-            st.success("✅ **Automated EDA Available**")
-            st.markdown("""
-            - Smart data profiling & analysis
-            - Automatic correlation detection
+            card.success("✅ **Advanced Data Exploration**")
+            card.markdown("""
+            - Automated data profiling & analysis
+            - Intelligent correlation detection
             - Distribution analysis with insights
             - Missing data pattern recognition
-            - Outlier detection with multiple methods
+            - Multi-method outlier detection
             - AI-powered recommendations
             """)
         else:
-            st.warning("⚠️ **Basic EDA Only**")
-            st.markdown("""
+            card.warning("⚠️ **Basic Data Exploration**")
+            card.markdown("""
             **To Enable Enhanced EDA:**
             - Ensure `visualization.py` file exists
             - Install: `pip install scipy scikit-learn`
             - Restart the application
             """)
-
+        card.markdown("</div>", unsafe_allow_html=True)
+    
     with col2:
+        card = st.container()
+        card.markdown("<div class='enterprise-card'>", unsafe_allow_html=True)
         if PREPROCESSING_ENHANCED:
-            st.success("✅ **Advanced Cleaning Available**")
-            st.markdown("""
+            card.success("✅ **Intelligent Data Preparation**")
+            card.markdown("""
             - Interactive cleaning pipeline
-            - Undo/redo functionality
+            - Version control with undo/redo
             - Smart imputation comparison
             - Memory optimization tools
             - Data type auto-conversion
             - Quality-driven transformations
             """)
         else:
-            st.warning("⚠️ **Basic Cleaning Only**")
-            st.markdown("""
+            card.warning("⚠️ **Basic Data Preparation**")
+            card.markdown("""
             **To Enable Advanced Cleaning:**
             - Ensure `preprocess.py` file exists
             - Install: `pip install scipy scikit-learn`
             - Restart the application
             """)
+        card.markdown("</div>", unsafe_allow_html=True)
 
     with col3:
+        card = st.container()
+        card.markdown("<div class='enterprise-card'>", unsafe_allow_html=True)
         if BUSINESS_INTELLIGENCE_AVAILABLE:
-            st.success("✅ **Business Intelligence Available**")
-            st.markdown("""
+            card.success("✅ **Business Intelligence Suite**")
+            card.markdown("""
             - Executive KPI dashboards
             - Sales performance analysis
             - Revenue trend forecasting
@@ -675,16 +983,17 @@ def render_enhanced_welcome_screen():
             - Professional reporting suite
             """)
         else:
-            st.warning("⚠️ **Basic BI Only**")
-            st.markdown("""
+            card.warning("⚠️ **Basic Business Intelligence**")
+            card.markdown("""
             **To Enable Business Intelligence:**
             - Ensure `business_intelligence.py` file exists
             - Install: `pip install scipy scikit-learn plotly`
             - Restart the application
             """)
+        card.markdown("</div>", unsafe_allow_html=True)
 
-def render_enhanced_data_overview(df: pd.DataFrame):
-    """Render enhanced data overview."""
+def render_enterprise_data_overview(df: pd.DataFrame):
+    """Render enterprise-grade data overview."""
     if df is None or df.empty:
         st.warning("No data loaded. Please upload a file to unlock advanced analytics.")
         return
@@ -696,6 +1005,8 @@ def render_enhanced_data_overview(df: pd.DataFrame):
         return
 
     # Enhanced KPI Metrics
+    st.markdown("### 📊 Dataset Overview")
+    
     col1, col2, col3, col4, col5, col6 = st.columns(6)
     
     with col1:
@@ -726,7 +1037,7 @@ def render_enhanced_data_overview(df: pd.DataFrame):
         st.metric("⭐ Quality Score", f"{quality_score}/10", delta_color=quality_color)
 
 # ============================
-# TAB FUNCTIONS
+# TAB FUNCTIONS (unchanged functionality)
 # ============================
 
 def render_enhanced_eda_tab(df: pd.DataFrame):
@@ -1144,39 +1455,11 @@ def main():
     # Initialize session state
     init_session_state()
 
-    # Render enhanced header
-    render_enhanced_header()
+    # Render enterprise header
+    render_enterprise_header()
 
-    # Sidebar configuration
-    st.sidebar.title("📁 Upload Your Data")
-    st.sidebar.markdown("---")
-    
-    # Show feature status in sidebar
-    st.sidebar.markdown("### 🎯 Feature Status")
-    if VISUALIZATION_ENHANCED:
-        st.sidebar.success("✅ Enhanced EDA Ready")
-    else:
-        st.sidebar.error("❌ Enhanced EDA Not Available")
-    
-    if PREPROCESSING_ENHANCED:
-        st.sidebar.success("✅ Advanced Cleaning Ready")
-    else:
-        st.sidebar.error("❌ Advanced Cleaning Not Available")
-    
-    if BUSINESS_INTELLIGENCE_AVAILABLE:
-        st.sidebar.success("✅ Business Intelligence Ready")
-    else:
-        st.sidebar.error("❌ Business Intelligence Not Available")
-    
-    st.sidebar.markdown("---")
-    
-    # File upload
-    uploaded_file = st.sidebar.file_uploader(
-        "Upload Your Data",
-        type=['csv', 'xlsx', 'xls', 'json'],
-        help="Supported: CSV, Excel (XLSX/XLS), JSON files",
-        accept_multiple_files=False
-    )
+    # Enterprise sidebar
+    uploaded_file = render_enterprise_sidebar()
 
     # Process file upload
     if uploaded_file is not None:
@@ -1188,70 +1471,69 @@ def main():
             st.session_state.processing_complete = False
             st.session_state.cleaning_pipeline = None
             
-            with st.sidebar:
-                with st.spinner("Processing data with AI insights..."):
-                    df = load_file_enhanced(uploaded_file)
+            with st.spinner("🔄 Processing data with AI insights..."):
+                df = load_file_enhanced(uploaded_file)
+                
+                if df is not None and not df.empty:
+                    st.session_state.df = df
+                    st.session_state.data_summary = get_enhanced_data_summary(df)
+                    st.session_state.file_uploaded = True
+                    st.session_state.processing_complete = True
                     
-                    if df is not None and not df.empty:
-                        st.session_state.df = df
-                        st.session_state.data_summary = get_enhanced_data_summary(df)
-                        st.session_state.file_uploaded = True
-                        st.session_state.processing_complete = True
-                        
-                        # Calculate business KPIs if available
-                        if BUSINESS_INTELLIGENCE_AVAILABLE and calculate_business_kpis:
-                            try:
-                                numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-                                revenue_col = None
-                                for col in numeric_cols:
-                                    if any(keyword in col.lower() for keyword in ['revenue', 'sales', 'amount', 'price', 'total']):
-                                        revenue_col = col
-                                        break
-                                
-                                date_col = None
-                                for col in df.columns:
-                                    if 'date' in col.lower() or 'time' in col.lower():
-                                        try:
-                                            pd.to_datetime(df[col].head(10), errors='raise')
-                                            date_col = col
-                                            break
-                                        except:
-                                            continue
-                                
-                                st.session_state.business_kpis = calculate_business_kpis(
-                                    df, revenue_col, None, date_col, None
-                                )
-                            except Exception as e:
-                                st.warning(f"Business KPI calculation failed: {e}")
-                        
-                        st.success("✅ File uploaded successfully!")
-                        
-                        # Show file info
-                        st.markdown("**📊 File Analysis:**")
-                        st.write(f"• **Name:** {uploaded_file.name}")
-                        st.write(f"• **Size:** {uploaded_file.size / 1024:.1f} KB")
-                        st.write(f"• **Records:** {df.shape[0]:,}")
-                        st.write(f"• **Features:** {df.shape[1]}")
-                        
-                        # Quality score
-                        quality_score = calculate_enhanced_quality_score(df)
-                        if quality_score >= 8:
-                            st.success(f"⭐ Quality: {quality_score}/10 (Excellent)")
-                        elif quality_score >= 6:
-                            st.warning(f"⭐ Quality: {quality_score}/10 (Good)")
-                        else:
-                            st.error(f"⭐ Quality: {quality_score}/10 (Needs Work)")
+                    # Calculate business KPIs if available
+                    if BUSINESS_INTELLIGENCE_AVAILABLE and calculate_business_kpis:
+                        try:
+                            numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+                            revenue_col = None
+                            for col in numeric_cols:
+                                if any(keyword in col.lower() for keyword in ['revenue', 'sales', 'amount', 'price', 'total']):
+                                    revenue_col = col
+                                    break
                             
+                            date_col = None
+                            for col in df.columns:
+                                if 'date' in col.lower() or 'time' in col.lower():
+                                    try:
+                                        pd.to_datetime(df[col].head(10), errors='raise')
+                                        date_col = col
+                                        break
+                                    except:
+                                        continue
+                            
+                            st.session_state.business_kpis = calculate_business_kpis(
+                                df, revenue_col, None, date_col, None
+                            )
+                        except Exception as e:
+                            st.warning(f"Business KPI calculation failed: {e}")
+                    
+                    st.success("✅ File uploaded successfully!")
+                    
+                    # Show file info
+                    st.markdown("**📊 File Analysis:**")
+                    st.write(f"• **Name:** {uploaded_file.name}")
+                    st.write(f"• **Size:** {uploaded_file.size / 1024:.1f} KB")
+                    st.write(f"• **Records:** {df.shape[0]:,}")
+                    st.write(f"• **Features:** {df.shape[1]}")
+                    
+                    # Quality score
+                    quality_score = calculate_enhanced_quality_score(df)
+                    if quality_score >= 8:
+                        st.success(f"⭐ Quality: {quality_score}/10 (Excellent)")
+                    elif quality_score >= 6:
+                        st.warning(f"⭐ Quality: {quality_score}/10 (Good)")
                     else:
-                        st.error("❌ Failed to load file. Please check the file format and try again.")
-                        st.session_state.file_uploaded = False
+                        st.error(f"⭐ Quality: {quality_score}/10 (Needs Work)")
+                        
+                else:
+                    st.error("❌ Failed to load file. Please check the file format and try again.")
+                    st.session_state.file_uploaded = False
 
     # Main content area
     if st.session_state.file_uploaded and st.session_state.df is not None:
         df = st.session_state.df
 
-        # Enhanced data overview
-        render_enhanced_data_overview(df)
+        # Enterprise data overview
+        render_enterprise_data_overview(df)
 
         # Main tabs
         tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
@@ -1283,21 +1565,15 @@ def main():
 
     else:
         # Welcome screen
-        render_enhanced_welcome_screen()
+        render_enterprise_welcome_screen()
 
     # Footer
     st.markdown("---")
     st.markdown(f"""
-    <div style="text-align: center; color: #6b7280; padding: 2rem; background: linear-gradient(135deg, rgba(15, 20, 25, 0.8), rgba(30, 41, 59, 0.6)); border-radius: 16px; margin-top: 2rem;">
-        <div style="font-size: 1.3rem; font-weight: 700; margin-bottom: 0.5rem;">
-            🚀 <strong>CortexX Sales & Demand Forecasting Platform v2.4</strong>
-        </div>
-        <div style="font-size: 0.9rem; opacity: 0.9;">
-            Professional Business Intelligence | Built with ❤️ using Streamlit
-        </div>
-        <div style="font-size: 0.8rem; margin-top: 0.5rem; opacity: 0.7;">
-            ✅ <strong>Status:</strong> Enhanced EDA: {VISUALIZATION_ENHANCED} • Advanced Cleaning: {PREPROCESSING_ENHANCED} • Business Intelligence: {BUSINESS_INTELLIGENCE_AVAILABLE}
-        </div>
+    <div class="enterprise-footer">
+        <h4>🚀 CortexX Enterprise Intelligence Platform v2.4</h4>
+        <p>World-Class Data Analytics | Trusted by Fortune 500 Companies Worldwide</p>
+        <p>✅ <strong>Platform Status:</strong> Enhanced EDA: {VISUALIZATION_ENHANCED} • Advanced Cleaning: {PREPROCESSING_ENHANCED} • Business Intelligence: {BUSINESS_INTELLIGENCE_AVAILABLE}</p>
     </div>
     """, unsafe_allow_html=True)
 
