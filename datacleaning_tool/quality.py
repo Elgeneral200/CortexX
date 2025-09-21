@@ -1,18 +1,19 @@
 # filename: quality.py
 """
-Data Quality Module - Enhanced Professional Edition v2.2
+Data Quality Module - Professional Enterprise Edition v3.0
 
-Enhanced data quality validation and reporting with Phase 1 integration:
+Enhanced data quality validation and reporting with complete Phase 1 integration:
 - Comprehensive quality rules (null, unique, range, pattern validation)
 - Advanced quality scoring and metrics with business intelligence
 - Professional HTML and interactive reporting
-- Integration with enhanced preprocessing and visualization modules
+- Complete integration with enhanced preprocessing and visualization modules
 - Real-time quality monitoring and alerts
 - Business rule validation engine
 - Quality trend analysis and recommendations
+- Professional logging and error handling
 
 Author: CortexX Team
-Version: 2.2.0 - Enhanced Professional Edition with Phase 1 Integration
+Version: 3.0.0 - Professional Enterprise Edition
 """
 
 import pandas as pd
@@ -20,11 +21,25 @@ import numpy as np
 import json
 import re
 import html
-from typing import Dict, List, Optional, Tuple, Any, Callable
-from datetime import datetime
+import logging
 import time
 import warnings
+from typing import Dict, List, Optional, Tuple, Any, Callable, Union
+from datetime import datetime
 from dataclasses import dataclass, field
+from pathlib import Path
+import hashlib
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("quality.log"),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 # Suppress warnings for cleaner output
 warnings.filterwarnings('ignore')
@@ -35,19 +50,32 @@ try:
     SCIPY_AVAILABLE = True
 except ImportError:
     SCIPY_AVAILABLE = False
+    logger.warning("SciPy not available - some statistical features will be limited")
 
 try:
     from sklearn.ensemble import IsolationForest
     from sklearn.preprocessing import StandardScaler
+    from sklearn.cluster import DBSCAN
     SKLEARN_AVAILABLE = True
 except ImportError:
     SKLEARN_AVAILABLE = False
+    logger.warning("Scikit-learn not available - some ML-based features will be limited")
 
 try:
     import streamlit as st
     STREAMLIT_AVAILABLE = True
 except ImportError:
     STREAMLIT_AVAILABLE = False
+    logger.warning("Streamlit not available - dashboard features will be limited")
+
+try:
+    import plotly.express as px
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    PLOTLY_AVAILABLE = True
+except ImportError:
+    PLOTLY_AVAILABLE = False
+    logger.warning("Plotly not available - advanced visualization features will be limited")
 
 # ============================
 # ENHANCED DATA STRUCTURES
@@ -55,7 +83,7 @@ except ImportError:
 
 @dataclass
 class QualityResult:
-    """Enhanced quality check result with detailed metadata."""
+    """Enhanced quality check result with comprehensive metadata."""
     rule_id: str
     label: str
     passed: bool
@@ -69,6 +97,8 @@ class QualityResult:
     business_impact: str = ""
     recommendation: str = ""
     fix_strategy: str = ""
+    execution_time: float = 0.0
+    memory_usage: float = 0.0
     
     def __post_init__(self):
         """Calculate pass rate and determine severity."""
@@ -92,11 +122,13 @@ class QualityResult:
             "passed": self.passed,
             "failed_count": self.failed_count,
             "total_count": self.total_count,
-            "pass_rate": self.pass_rate,
+            "pass_rate": round(self.pass_rate, 2),
             "severity": self.severity,
             "business_impact": self.business_impact,
             "recommendation": self.recommendation,
             "fix_strategy": self.fix_strategy,
+            "execution_time": round(self.execution_time, 4),
+            "memory_usage": round(self.memory_usage, 2),
             "stats": self.stats
         }
 
@@ -184,10 +216,12 @@ def rule_label(rule: Dict[str, Any]) -> str:
         return f"Pattern Match '{pattern}': {params.get('column', 'N/A')}"
     elif rule_type == 'dtype':
         return f"Data Type '{params.get('dtype')}': {params.get('column', 'N/A')}"
+    elif rule_type == 'custom':
+        return f"Custom Rule: {params.get('name', 'Unnamed')}"
     else:
-        return f"Custom Rule: {rule_type}"
+        return f"Unknown Rule: {rule_type}"
 
-# Keep existing check functions but add enhanced error handling
+# Enhanced check functions with better error handling and performance
 def check_not_null(df: pd.DataFrame, column: str) -> Tuple[pd.Series, Dict[str, Any]]:
     """Check for non-null values in a column."""
     if df.empty:
@@ -416,12 +450,32 @@ def check_dtype(df: pd.DataFrame, column: str, dtype: str) -> Tuple[pd.Series, D
         "unique_values": df[column].nunique()
     }
 
+def check_custom(df: pd.DataFrame, column: str, func: Callable) -> Tuple[pd.Series, Dict[str, Any]]:
+    """Check custom function rule."""
+    if df.empty:
+        return pd.Series([], dtype=bool), {"warning": "Empty DataFrame"}
+    
+    if column not in df.columns:
+        return pd.Series([False] * len(df), index=df.index), {"error": f"Column '{column}' not found"}
+    
+    try:
+        mask = df[column].apply(func)
+        violations = int((~mask).sum())
+        
+        return mask, {
+            "violations": violations,
+            "function_name": func.__name__ if hasattr(func, '__name__') else 'anonymous',
+            "pass_rate": round((len(df) - violations) / len(df), 4) if len(df) > 0 else 0
+        }
+    except Exception as e:
+        return pd.Series([False] * len(df), index=df.index), {"error": str(e)}
+
 # ============================
 # ENHANCED QUALITY ENGINE
 # ============================
 
 class EnhancedQualityEngine:
-    """Enhanced quality rule execution engine with Phase 1 integration."""
+    """Enhanced quality rule execution engine with complete Phase 1 integration."""
     
     def __init__(self):
         self.rule_functions = {
@@ -435,6 +489,7 @@ class EnhancedQualityEngine:
             'allowed': check_allowed,
             'regex': check_regex,
             'dtype': check_dtype,
+            'custom': check_custom,
         }
         
         # Enhanced rule configurations with business context
@@ -442,13 +497,17 @@ class EnhancedQualityEngine:
             'completeness': {'type': 'not_null_threshold', 'threshold': 0.95},
             'uniqueness': {'type': 'unique'},
             'email_format': {'type': 'regex', 'pattern': r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'},
+            'phone_format': {'type': 'regex', 'pattern': r'^(\+\d{1,3})?[\s-]?KATEX_INLINE_OPEN?\d{3}KATEX_INLINE_CLOSE?[\s-]?\d{3}[\s-]?\d{4}$'},
             'positive_values': {'type': 'min', 'min': 0},
-            'percentage_range': {'type': 'between', 'min': 0, 'max': 100}
+            'percentage_range': {'type': 'between', 'min': 0, 'max': 100},
+            'date_format': {'type': 'regex', 'pattern': r'^\d{4}-\d{2}-\d{2}$'}
         }
+        
+        logger.info("EnhancedQualityEngine initialized with %d rule functions", len(self.rule_functions))
     
     def run_rules(self, df: pd.DataFrame, rules: List[Dict[str, Any]], 
                   progress_callback: Optional[Callable[[int, int, str], None]] = None) -> Tuple[List[QualityResult], QualityMetrics]:
-        """Execute quality rules and return enhanced results."""
+        """Execute quality rules and return enhanced results with performance tracking."""
         start_time = time.time()
         results = []
         failed_indices_all = set()
@@ -457,11 +516,13 @@ class EnhancedQualityEngine:
             if progress_callback:
                 try:
                     progress_callback(i, len(rules), f"Checking {rule.get('type', 'unknown')}")
-                except Exception:
-                    pass  # Don't let callback errors stop execution
+                except Exception as e:
+                    logger.warning("Progress callback failed: %s", e)
             
             try:
+                rule_start_time = time.time()
                 result = self.execute_rule(df, rule)
+                result.execution_time = time.time() - rule_start_time
                 results.append(result)
                 
                 if not result.passed:
@@ -478,9 +539,13 @@ class EnhancedQualityEngine:
                     stats={"error": str(e)}
                 )
                 results.append(error_result)
+                logger.error("Error executing rule %s: %s", rule.get('type', 'unknown'), e)
         
         # Calculate enhanced metrics
         metrics = self.calculate_enhanced_metrics(df, results, time.time() - start_time)
+        
+        logger.info("Quality check completed: %d rules executed, %d passed, %d failed",
+                   len(results), metrics.passed_rules, metrics.failed_rules)
         
         return results, metrics
     
@@ -488,7 +553,7 @@ class EnhancedQualityEngine:
         """Execute a single quality rule with enhanced context."""
         rule_type = rule.get('type', 'unknown')
         params = rule.get('params', {})
-        rule_id = rule.get('id', f'rule_{rule_type}')
+        rule_id = rule.get('id', f'rule_{rule_type}_{hashlib.md5(str(rule).encode()).hexdigest()[:6]}')
         
         # Get the check function
         check_function = self.rule_functions.get(rule_type)
@@ -538,6 +603,7 @@ class EnhancedQualityEngine:
             return result
             
         except Exception as e:
+            logger.error("Error executing rule %s: %s", rule_type, e)
             return QualityResult(
                 rule_id=rule_id,
                 label=rule_label(rule),
@@ -554,9 +620,16 @@ class EnhancedQualityEngine:
         
         impact_map = {
             'not_null': f"Missing critical data affects {result.failed_count} records",
+            'not_null_threshold': f"Incomplete data affects analysis in {result.failed_count} records",
             'unique': f"Duplicate data may cause analysis errors in {result.failed_count} records",
+            'unique_multi': f"Non-unique combinations affect data integrity in {result.failed_count} records",
+            'min': f"Values below minimum threshold affect {result.failed_count} records",
+            'max': f"Values above maximum threshold affect {result.failed_count} records",
             'between': f"Out of range values affect data reliability in {result.failed_count} records",
-            'regex': f"Invalid format affects data processing in {result.failed_count} records"
+            'allowed': f"Invalid values affect data quality in {result.failed_count} records",
+            'regex': f"Invalid format affects data processing in {result.failed_count} records",
+            'dtype': f"Data type mismatch affects {result.failed_count} records",
+            'custom': f"Custom validation failed in {result.failed_count} records"
         }
         
         return impact_map.get(rule_type, f"Data quality issue affects {result.failed_count} records")
@@ -567,11 +640,17 @@ class EnhancedQualityEngine:
             return "Continue current data quality practices"
         
         recommendations = {
-            'not_null': "Implement mandatory field validation or use smart imputation from Advanced Cleaning",
+            'not_null': "Implement mandatory field validation or use smart imputation",
+            'not_null_threshold': "Improve data collection processes or use imputation techniques",
             'unique': "Add unique constraints or use duplicate removal from cleaning pipeline", 
+            'unique_multi': "Review business rules for unique combination requirements",
+            'min': "Implement minimum value validation at data entry",
+            'max': "Implement maximum value validation at data entry",
             'between': "Review business rules and add input validation",
+            'allowed': "Implement allowed values validation at data entry",
             'regex': "Implement format validation at data entry point",
-            'dtype': "Add data type validation and conversion in preprocessing"
+            'dtype': "Add data type validation and conversion in preprocessing",
+            'custom': "Review custom validation function and business rules"
         }
         
         return recommendations.get(rule_type, "Review and implement data validation rules")
@@ -583,10 +662,16 @@ class EnhancedQualityEngine:
         
         strategies = {
             'not_null': "Use pipeline.add_step('smart_imputation', {'strategy': 'smart'})",
+            'not_null_threshold': "Use pipeline.add_step('smart_imputation', {'strategy': 'auto'})",
             'unique': "Use pipeline.add_step('drop_duplicates', {})",
+            'unique_multi': "Use pipeline.add_step('drop_duplicates', {'subset': ['column1', 'column2']})",
+            'min': "Use pipeline.add_step('handle_outliers', {'method': 'iqr_cap'})",
+            'max': "Use pipeline.add_step('handle_outliers', {'method': 'iqr_cap'})",
             'between': "Use pipeline.add_step('handle_outliers', {'method': 'iqr_cap'})",
-            'regex': "Clean data format before validation",
-            'dtype': "Use pipeline.add_step('optimize_memory', {'aggressive': False})"
+            'allowed': "Filter or replace invalid values using custom transformation",
+            'regex': "Clean data format before validation using string operations",
+            'dtype': "Use pipeline.add_step('optimize_memory', {'aggressive': False})",
+            'custom': "Implement data transformation to fix validation issues"
         }
         
         return strategies.get(rule_type, "Apply appropriate data cleaning operations")
@@ -723,7 +808,7 @@ class EnhancedQualityReporter:
         <!-- Footer -->
         <footer class="footer">
             <div class="footer-content">
-                <p>Generated by CortexX Data Quality Engine v2.2</p>
+                <p>Generated by CortexX Data Quality Engine v3.0</p>
                 <p>Execution time: {metrics.execution_time:.2f} seconds</p>
             </div>
         </footer>
@@ -947,6 +1032,8 @@ td { color: #e2e8f0; }
         """Generate enhanced data overview section."""
         numeric_cols = len(df.select_dtypes(include=[np.number]).columns)
         text_cols = len(df.select_dtypes(include=['object']).columns)
+        date_cols = len(df.select_dtypes(include=['datetime64']).columns)
+        bool_cols = len(df.select_dtypes(include=['bool']).columns)
         
         return f"""
         <section class="card">
@@ -968,19 +1055,19 @@ td { color: #e2e8f0; }
                     <div class="summary-label">Text Columns</div>
                 </div>
                 <div class="summary-item">
+                    <div class="summary-icon">📅</div>
+                    <div class="summary-value">{date_cols}</div>
+                    <div class="summary-label">Date Columns</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-icon">✅</div>
+                    <div class="summary-value">{bool_cols}</div>
+                    <div class="summary-label">Boolean Columns</div>
+                </div>
+                <div class="summary-item">
                     <div class="summary-icon">🎯</div>
                     <div class="summary-value">{metrics.overall_score:.1f}/10</div>
                     <div class="summary-label">Quality Score</div>
-                </div>
-                <div class="summary-item">
-                    <div class="summary-icon">📊</div>
-                    <div class="summary-value">{metrics.data_completeness:.1f}/10</div>
-                    <div class="summary-label">Completeness</div>
-                </div>
-                <div class="summary-item">
-                    <div class="summary-icon">🔄</div>
-                    <div class="summary-value">{metrics.data_uniqueness:.1f}/10</div>
-                    <div class="summary-label">Uniqueness</div>
                 </div>
             </div>
         </section>"""
@@ -1109,73 +1196,194 @@ td { color: #e2e8f0; }
 # ============================
 
 def render_quality_dashboard(df: pd.DataFrame, results: List[QualityResult], metrics: QualityMetrics):
-    """Render interactive quality dashboard in Streamlit."""
+    """Render professional interactive quality dashboard in Streamlit."""
     if not STREAMLIT_AVAILABLE:
-        print("⚠️ Streamlit not available - cannot render dashboard")
+        logger.warning("Streamlit not available - cannot render dashboard")
         return None
     
-    st.markdown("## 🔍 Data Quality Dashboard")
+    # Set page configuration
+    st.set_page_config(
+        page_title="Data Quality Dashboard",
+        page_icon="🔍",
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
     
-    # Quality overview
-    col1, col2, col3, col4 = st.columns(4)
+    # Custom CSS for professional appearance
+    st.markdown("""
+    <style>
+    .main-header {
+        font-size: 3rem;
+        color: #1f77b4;
+        margin-bottom: 1rem;
+    }
+    .metric-card {
+        background-color: #f0f2f6;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .result-card {
+        background-color: #ffffff;
+        padding: 1rem;
+        margin: 0.5rem 0;
+        border-radius: 0.5rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        border-left: 4px solid #1f77b4;
+    }
+    .success-result {
+        border-left-color: #2ecc71;
+    }
+    .error-result {
+        border-left-color: #e74c3c;
+    }
+    </style>
+    """, unsafe_allow_html=True)
     
-    with col1:
-        st.metric("Overall Score", f"{metrics.overall_score:.1f}/10")
-    with col2:
-        st.metric("Completeness", f"{metrics.data_completeness:.1f}/10")
-    with col3:
-        st.metric("Uniqueness", f"{metrics.data_uniqueness:.1f}/10")
-    with col4:
-        st.metric("Business Ready", metrics.business_readiness.title())
+    # Header
+    st.markdown('<h1 class="main-header">🔍 Data Quality Dashboard</h1>', unsafe_allow_html=True)
     
-    # Results summary
-    if results:
+    # Create tabs for different functionalities
+    tab1, tab2, tab3, tab4 = st.tabs(["📊 Overview", "✅ Results", "💡 Recommendations", "📈 Charts"])
+    
+    with tab1:
+        # Quality overview
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+            st.metric("Overall Score", f"{metrics.overall_score:.1f}/10")
+            st.markdown('</div>', unsafe_allow_html=True)
+        with col2:
+            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+            st.metric("Completeness", f"{metrics.data_completeness:.1f}/10")
+            st.markdown('</div>', unsafe_allow_html=True)
+        with col3:
+            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+            st.metric("Uniqueness", f"{metrics.data_uniqueness:.1f}/10")
+            st.markdown('</div>', unsafe_allow_html=True)
+        with col4:
+            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+            st.metric("Business Ready", metrics.business_readiness.title())
+            st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Data overview
+        st.markdown("### 📈 Data Overview")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Total Rows", metrics.total_rows)
+        with col2:
+            st.metric("Total Columns", metrics.total_columns)
+        with col3:
+            st.metric("Missing Values", metrics.missing_values)
+        with col4:
+            st.metric("Duplicate Rows", metrics.duplicate_rows)
+        
+        # Execution info
+        st.markdown("### ⚙️ Execution Information")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Execution Time", f"{metrics.execution_time:.2f}s")
+        with col2:
+            st.metric("Memory Usage", f"{metrics.memory_usage_mb:.1f} MB")
+    
+    with tab2:
+        # Results summary
         st.markdown("### 📊 Quality Results Summary")
         
-        results_data = []
-        for result in results:
-            results_data.append({
-                "Rule": result.label,
-                "Status": "✅ Pass" if result.passed else "❌ Fail",
-                "Failed Count": result.failed_count,
-                "Pass Rate": f"{result.pass_rate:.1f}%",
-                "Severity": result.severity.title(),
-                "Business Impact": result.business_impact[:50] + "..." if len(result.business_impact) > 50 else result.business_impact
+        if results:
+            results_data = []
+            for result in results:
+                results_data.append({
+                    "Rule": result.label,
+                    "Status": "✅ Pass" if result.passed else "❌ Fail",
+                    "Failed Count": result.failed_count,
+                    "Pass Rate": f"{result.pass_rate:.1f}%",
+                    "Severity": result.severity.title(),
+                    "Business Impact": result.business_impact[:50] + "..." if len(result.business_impact) > 50 else result.business_impact
+                })
+            
+            results_df = pd.DataFrame(results_data)
+            st.dataframe(results_df, use_container_width=True)
+            
+            # Failed rules details
+            failed_rules = [r for r in results if not r.passed]
+            if failed_rules:
+                st.markdown("### ⚠️ Failed Rules Details")
+                
+                selected_rule = st.selectbox("Select failed rule for details:", 
+                                           [r.label for r in failed_rules])
+                
+                if selected_rule:
+                    rule = next(r for r in failed_rules if r.label == selected_rule)
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.markdown("**Rule Details:**")
+                        st.write(f"**Failed Count:** {rule.failed_count:,}")
+                        st.write(f"**Pass Rate:** {rule.pass_rate:.1f}%")
+                        st.write(f"**Severity:** {rule.severity.title()}")
+                        st.write(f"**Execution Time:** {rule.execution_time:.2f}s")
+                    
+                    with col2:
+                        st.markdown("**Recommendations:**")
+                        st.info(rule.recommendation)
+                        if rule.fix_strategy:
+                            st.code(rule.fix_strategy)
+        else:
+            st.info("No quality results available")
+    
+    with tab3:
+        # Quality recommendations
+        st.markdown("### 💡 Quality Recommendations")
+        
+        recommendations = get_quality_recommendations_enhanced(df, results, metrics)
+        for i, rec in enumerate(recommendations, 1):
+            st.write(f"{i}. {rec}")
+    
+    with tab4:
+        # Quality charts
+        st.markdown("### 📈 Quality Charts")
+        
+        if results and PLOTLY_AVAILABLE:
+            # Create pass/fail chart
+            pass_fail_data = {
+                "Status": ["Passed", "Failed"],
+                "Count": [metrics.passed_rules, metrics.failed_rules]
+            }
+            pass_fail_df = pd.DataFrame(pass_fail_data)
+            
+            fig1 = px.pie(pass_fail_df, values='Count', names='Status', 
+                         title='Rule Pass/Fail Distribution',
+                         color='Status', color_discrete_map={'Passed':'green', 'Failed':'red'})
+            st.plotly_chart(fig1, use_container_width=True)
+            
+            # Create severity distribution chart
+            severity_counts = {}
+            for result in results:
+                severity = result.severity
+                severity_counts[severity] = severity_counts.get(severity, 0) + 1
+            
+            severity_df = pd.DataFrame({
+                "Severity": list(severity_counts.keys()),
+                "Count": list(severity_counts.values())
             })
-        
-        results_df = pd.DataFrame(results_data)
-        st.dataframe(results_df, use_container_width=True)
-        
-        # Failed rules details
-        failed_rules = [r for r in results if not r.passed]
-        if failed_rules:
-            st.markdown("### ⚠️ Failed Rules Details")
             
-            selected_rule = st.selectbox("Select failed rule for details:", 
-                                       [r.label for r in failed_rules])
-            
-            if selected_rule:
-                rule = next(r for r in failed_rules if r.label == selected_rule)
-                
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.markdown("**Rule Details:**")
-                    st.write(f"**Failed Count:** {rule.failed_count:,}")
-                    st.write(f"**Pass Rate:** {rule.pass_rate:.1f}%")
-                    st.write(f"**Severity:** {rule.severity.title()}")
-                
-                with col2:
-                    st.markdown("**Recommendations:**")
-                    st.info(rule.recommendation)
-                    if rule.fix_strategy:
-                        st.code(rule.fix_strategy)
-    
-    # Quality recommendations
-    st.markdown("### 💡 Quality Recommendations")
-    
-    recommendations = get_quality_recommendations_enhanced(df, results)
-    for i, rec in enumerate(recommendations, 1):
-        st.write(f"{i}. {rec}")
+            if not severity_df.empty:
+                fig2 = px.bar(severity_df, x='Severity', y='Count', 
+                             title='Rule Severity Distribution',
+                             color='Severity', 
+                             color_discrete_map={
+                                 'critical': 'red',
+                                 'high': 'orange',
+                                 'medium': 'blue',
+                                 'low': 'green'
+                             })
+                st.plotly_chart(fig2, use_container_width=True)
+        
+        elif not PLOTLY_AVAILABLE:
+            st.warning("Plotly not available - charts cannot be displayed")
 
 # ============================
 # ENHANCED CONVENIENCE FUNCTIONS
@@ -1208,7 +1416,9 @@ def run_rules(df: pd.DataFrame, rules: List[Dict[str, Any]],
         "failed_rows": len(set().union(*[r.failed_indices for r in results if r.failed_indices])),
         "total_rules": len(results),
         "passed_rules": metrics.passed_rules,
-        "failed_rules": metrics.failed_rules
+        "failed_rules": metrics.failed_rules,
+        "execution_time": metrics.execution_time,
+        "overall_score": metrics.overall_score
     }
     
     return legacy_results, summary
@@ -1249,9 +1459,10 @@ def generate_html_report(df: pd.DataFrame, rules: List[Dict[str, Any]],
     metrics.total_columns = len(df.columns)
     metrics.passed_rules = summary.get('passed_rules', 0)
     metrics.failed_rules = summary.get('failed_rules', 0)
-    metrics.overall_score = summary.get('pass_rate', 100) / 10
+    metrics.overall_score = summary.get('overall_score', summary.get('pass_rate', 100) / 10)
     metrics.missing_values = int(df.isnull().sum().sum())
     metrics.duplicate_rows = int(df.duplicated().sum())
+    metrics.execution_time = summary.get('execution_time', 0)
     
     # Generate report
     reporter = EnhancedQualityReporter()
@@ -1260,33 +1471,75 @@ def generate_html_report(df: pd.DataFrame, rules: List[Dict[str, Any]],
         metrics=metrics, dataset_name=meta.get('dataset_name', 'Dataset')
     )
 
-def get_quality_recommendations_enhanced(df: pd.DataFrame, results: List[QualityResult]) -> List[str]:
+def get_quality_recommendations_enhanced(df: pd.DataFrame, results: List[QualityResult], metrics: QualityMetrics) -> List[str]:
     """Generate enhanced quality recommendations with Phase 1 integration."""
     recommendations = []
     
     # Data quality recommendations
-    missing_pct = (df.isnull().sum().sum() / df.size) * 100
+    missing_pct = (df.isnull().sum().sum() / df.size) * 100 if df.size > 0 else 0
     if missing_pct > 10:
         recommendations.append(f"🔧 High missing data ({missing_pct:.1f}%) - Use Advanced Data Cleaning Pipeline with smart imputation")
     
-    duplicate_pct = (df.duplicated().sum() / len(df)) * 100
+    duplicate_pct = (df.duplicated().sum() / len(df)) * 100 if len(df) > 0 else 0
     if duplicate_pct > 1:
         recommendations.append(f"🔄 Found {duplicate_pct:.1f}% duplicate rows - Use cleaning pipeline to remove duplicates")
     
     # Memory optimization
-    memory_mb = df.memory_usage(deep=True).sum() / 1024 / 1024
+    memory_mb = df.memory_usage(deep=True).sum() / 1024 / 1024 if not df.empty else 0
     if memory_mb > 100:
         recommendations.append(f"💾 Large dataset ({memory_mb:.1f}MB) - Use dtype optimization in Advanced Cleaning")
     
     # Rule-specific recommendations
     failed_rules = [r for r in results if not r.passed]
     if len(failed_rules) / max(len(results), 1) > 0.3:
-        recommendations.append("⚠️ Consider using Business Intelligence module for deeper insights into data issues")
+        recommendations.append("⚠️ High failure rate - Consider using Business Intelligence module for deeper insights into data issues")
+    
+    # Business readiness
+    if metrics.business_readiness == "critical":
+        recommendations.append("🚨 Critical data quality issues - Data is not ready for business use")
+    elif metrics.business_readiness == "needs_attention":
+        recommendations.append("⚠️ Data needs attention - Review and fix quality issues before business analysis")
+    else:
+        recommendations.append("✅ Data is ready for Business Intelligence analysis and ML modeling")
     
     if not recommendations:
-        recommendations.append("🎉 Excellent data quality! Ready for Business Intelligence analysis and ML modeling")
+        recommendations.append("🎉 Excellent data quality! Continue current data management practices")
     
     return recommendations
+
+# ============================
+# BUSINESS RULE VALIDATION
+# ============================
+
+def validate_business_rules(df: pd.DataFrame, rules: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Validate business rules with enhanced reporting."""
+    engine = EnhancedQualityEngine()
+    results, metrics = engine.run_rules(df, rules)
+    
+    # Categorize results by business impact
+    critical_issues = [r for r in results if r.severity == "critical" and not r.passed]
+    high_issues = [r for r in results if r.severity == "high" and not r.passed]
+    medium_issues = [r for r in results if r.severity == "medium" and not r.passed]
+    low_issues = [r for r in results if r.severity == "low" and not r.passed]
+    
+    # Calculate business impact score
+    impact_score = max(0, 100 - (
+        len(critical_issues) * 10 + 
+        len(high_issues) * 5 + 
+        len(medium_issues) * 2 + 
+        len(low_issues) * 1
+    ))
+    
+    return {
+        "impact_score": impact_score,
+        "critical_issues": len(critical_issues),
+        "high_issues": len(high_issues),
+        "medium_issues": len(medium_issues),
+        "low_issues": len(low_issues),
+        "all_issues": [r.to_dict() for r in results if not r.passed],
+        "business_readiness": "ready" if impact_score >= 80 else "needs_attention" if impact_score >= 60 else "critical",
+        "recommendations": get_quality_recommendations_enhanced(df, results, metrics)
+    }
 
 # ============================
 # EXPORTS
@@ -1302,11 +1555,15 @@ __all__ = [
     'generate_html_report',
     'rule_label',
     'get_quality_recommendations_enhanced',
-    'render_quality_dashboard'
+    'render_quality_dashboard',
+    'validate_business_rules'
 ]
 
-print("✅ Enhanced Data Quality Module v2.2 - Loaded Successfully!")
+# Print module load status
+logger.info("Enhanced Data Quality Module v3.0 - Loaded Successfully!")
+print("✅ Enhanced Data Quality Module v3.0 - Loaded Successfully!")
 print(f"   📊 SciPy Available: {SCIPY_AVAILABLE}")
 print(f"   🤖 Scikit-learn Available: {SKLEARN_AVAILABLE}")
 print(f"   🎨 Streamlit Available: {STREAMLIT_AVAILABLE}")
+print(f"   📈 Plotly Available: {PLOTLY_AVAILABLE}")
 print("   🚀 All functions ready for import!")
