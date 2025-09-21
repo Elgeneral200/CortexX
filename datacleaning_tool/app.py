@@ -1,15 +1,20 @@
 # filename: app.py
 """
-CortexX Sales & Demand Forecasting Platform - Complete Working Edition v2.2
+CortexX Sales & Demand Forecasting Platform - Complete Working Edition v2.4
 
-All Phase 1 features working with fixed imports and no errors.
-Ready to run directly.
+Phase 1+:
+- Safe label/annotation integration across plots (in visualization.py)
+- ECDF and QQ-Plot integration into Streamlit (this file)
+- Optional improved correlation heatmap controls (mask/threshold)
+- Backwards compatible; no data-logic changes
 
 Author: CortexX Team
-Version: 2.2.0 - Complete Working Edition
+Version: 2.4.0 - Stable (Baseline + Interactive stability fixes)
 """
 
 import streamlit as st
+from PIL import Image
+import base64
 import pandas as pd
 import numpy as np
 import plotly.express as px
@@ -21,7 +26,7 @@ import json
 import time
 import warnings
 from typing import Dict, List, Optional, Tuple, Any
-import hashlib
+import uuid  # already present in your baseline
 
 # Suppress warnings for cleaner output
 warnings.filterwarnings('ignore')
@@ -37,7 +42,11 @@ try:
         create_correlation_heatmap,
         create_distribution_grid,
         create_missing_data_heatmap,
-        create_outlier_detection_plot
+        create_outlier_detection_plot,
+        # NEW: added safely
+        create_ecdf_plot,
+        create_qq_plot,
+        theme_manager
     )
     VISUALIZATION_ENHANCED = True
     print("✅ Enhanced Visualization: LOADED")
@@ -50,6 +59,8 @@ except ImportError as e:
     create_distribution_grid = None
     create_missing_data_heatmap = None
     create_outlier_detection_plot = None
+    create_ecdf_plot = None
+    create_qq_plot = None
 
 try:
     from preprocess import (
@@ -109,11 +120,115 @@ print(f"   Business Intelligence: {BUSINESS_INTELLIGENCE_AVAILABLE}")
 # ============================
 
 st.set_page_config(
-    page_title="🚀 CortexX Sales & Demand Forecasting Platform v2.2",
-    page_icon="🚀",
+    page_title="CortexX Sales & Demand Forecasting Platform",
+    page_icon=Image.open(r"D:\cortexx-forecasting\datacleaning_tool\assets\logo.png"),
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+
+
+
+
+import streamlit as st
+import base64
+
+# Function to encode local image to base64
+def get_base64_image(image_path):
+    with open(image_path, "rb") as img_file:
+        return base64.b64encode(img_file.read()).decode()
+
+# Sidebar styling
+st.sidebar.markdown(
+    """
+    <style>
+    .sidebar .sidebar-content {
+        background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+    }
+    .logo-container {
+        text-align: center;
+        padding: 1.5rem 0 1rem 0;
+        border-bottom: 1px solid #e2e8f0;
+        margin-bottom: 1.5rem;
+    }
+    .caption {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #2563eb;  /* Changed to a brighter blue for better visibility */
+        margin-top: 0.75rem;
+        letter-spacing: 0.5px;
+        text-shadow: 0px 1px 2px rgba(0,0,0,0.05);
+    }
+    .tagline {
+        font-size: 0.9rem;
+        color: #64748b;
+        margin-top: 0.25rem;
+        margin-bottom: 0.5rem;
+    }
+    .about-section {
+        background-color: #ffffff;
+        border-radius: 8px;
+        padding: 1.25rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        border-left: 4px solid #6366f1;
+        margin-top: 1.5rem;
+    }
+    .about-header {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #2563eb;  /* Matching the new blue color */
+        margin-bottom: 0.75rem;
+    }
+    .about-content {
+        font-size: 0.9rem;
+        color: #475569;
+        line-height: 1.5;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# Logo display with enhanced styling
+logo_base64 = get_base64_image(r"D:\cortexx-forecasting\datacleaning_tool\assets\logo.png")
+
+st.sidebar.markdown(
+    f"""
+    <div class="logo-container">
+        <img src="data:image/png;base64,{logo_base64}" width="150">
+        <div class="caption">CortexX Platform</div>
+        <div class="tagline">Advanced Data Forecasting & Analytics</div>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+# About section
+st.sidebar.markdown(
+    """
+    <div class="about-section">
+        <div class="about-header">About CortexX</div>
+        <div class="about-content">
+            CortexX Platform provides enterprise-grade data forecasting 
+            and analytics capabilities. Our AI-powered tools help businesses 
+            transform raw data into actionable insights for strategic decision-making.
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+# Add a subtle footer with updated year
+st.sidebar.markdown(
+    """
+    <div style='text-align: center; margin-top: 2rem; color: #94a3b8; font-size: 0.75rem;'>
+        © 2025 CortexX Company. All rights reserved.
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+
 
 # ============================
 # UTILITY FUNCTIONS
@@ -140,7 +255,7 @@ def safe_convert_for_json(obj):
             return "Unable to convert"
 
 def init_session_state():
-    """Initialize session state variables."""
+    """Initialize session state variables (baseline + minimal persistent UI state)."""
     defaults = {
         'df': None,
         'data_summary': {},
@@ -150,12 +265,33 @@ def init_session_state():
         'processing_complete': False,
         'cleaning_pipeline': None,
         'eda_report': None,
-        'business_kpis': {}
+        'business_kpis': {},
+        # NEW: persisted selections for stable widgets (non-breaking)
+        'viz_session': None,
+        'ecdf_column': None,
+        'ecdf_norm': 'percent',   # allowed by px.ecdf: 'percent' or 'probability' (or None)
+        'qq_column': None,
+        # Interactive tab persistent keys/values
+        'viz_tab_type': None,
+        'basic_col': None,
+        'basic_kind': None,
+        'corr_mask_upper': False,
+        'corr_annotate': False,
+        'corr_threshold': 0.8,
     }
-    
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
+    if st.session_state['viz_session'] is None:
+        st.session_state['viz_session'] = uuid.uuid4().hex[:8]
+
+def key_of(name: str) -> str:
+    """Stable widget key based on a session prefix."""
+    return f"{st.session_state['viz_session']}_{name}"
+
+# ============================
+# STYLES (unchanged)
+# ============================
 
 def load_enhanced_professional_css():
     """Load enhanced professional CSS styling."""
@@ -309,10 +445,7 @@ def load_enhanced_professional_css():
     footer {visibility: hidden;}
     header {visibility: hidden;}
 
-    .fade-in {
-        animation: fadeIn 0.6s ease-in;
-    }
-
+    .fade-in { animation: fadeIn 0.6s ease-in; }
     @keyframes fadeIn {
         from { opacity: 0; transform: translateY(20px); }
         to { opacity: 1; transform: translateY(0); }
@@ -331,7 +464,6 @@ def load_file_enhanced(uploaded_file) -> pd.DataFrame:
     try:
         if uploaded_file is None:
             return pd.DataFrame()
-            
         uploaded_file.seek(0)
         file_extension = uploaded_file.name.split('.')[-1].lower()
 
@@ -345,7 +477,6 @@ def load_file_enhanced(uploaded_file) -> pd.DataFrame:
                         return df
                 except:
                     continue
-            
             uploaded_file.seek(0)
             return pd.read_csv(uploaded_file, encoding='utf-8', errors='replace')
 
@@ -463,8 +594,8 @@ def render_enhanced_header():
     
     st.markdown(f"""
     <div class="main-header fade-in">
-        <h1>🚀 CortexX Sales & Demand Forecasting Platform</h1>
-        <p>Professional Business Intelligence with Phase 1 Enhanced Features</p>
+        <h1>CortexX Sales & Demand Forecasting Platform</h1>
+        <p>Professional Business Intelligence with Phase 1 Features</p>
         <div style="margin-top: 1.5rem;">
             {''.join(feature_badges)}
         </div>
@@ -593,22 +724,6 @@ def render_enhanced_data_overview(df: pd.DataFrame):
         
         quality_color = "normal" if quality_score >= 7 else "inverse"
         st.metric("⭐ Quality Score", f"{quality_score}/10", delta_color=quality_color)
-
-    # Data quality insights
-    if summary.get("data_quality_issues"):
-        st.warning("📋 **Data Quality Insights:**")
-        for issue in summary["data_quality_issues"]:
-            st.write(f"• {issue}")
-
-    # Quality recommendations
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        if quality_score >= 8:
-            st.success("🎉 Excellent Data Quality! Ready for advanced analytics and ML modeling.")
-        elif quality_score >= 6:
-            st.warning("✨ Good Quality Data. Consider using the Smart Cleaning tools for optimization.")
-        else:
-            st.error("⚠️ Data Quality Needs Improvement. Use our Advanced Cleaning Pipeline to enhance your data.")
 
 # ============================
 # TAB FUNCTIONS
@@ -764,7 +879,7 @@ def render_basic_bi_fallback(df: pd.DataFrame):
         st.info("No numeric columns found for business analysis.")
 
 def render_enhanced_visualization_tab(df: pd.DataFrame):
-    """Render enhanced visualization tab."""
+    """Render enhanced visualization tab (now with ECDF & QQ-Plot) with persistent widget state."""
     st.markdown("### 🎨 Advanced Interactive Visualizations")
     
     numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
@@ -773,47 +888,113 @@ def render_enhanced_visualization_tab(df: pd.DataFrame):
     if not numeric_cols and not categorical_cols:
         st.info("No suitable columns found for visualization.")
         return
-    
-    viz_type = st.selectbox(
-        "Select visualization type:",
-        ["Basic Charts", "Correlation Analysis", "Distribution Analysis", "Missing Data Pattern"]
-    )
-    
+
+    # Stable viz_type (init once, then call with key only)
+    viz_options = [
+        "Basic Charts",
+        "Correlation Analysis",
+        "Distribution Analysis",
+        "Missing Data Pattern",
+        "ECDF",
+        "QQ-Plot"
+    ]
+    viz_key = key_of("viz_type")
+    if st.session_state.get('viz_tab_type') not in viz_options:
+        st.session_state['viz_tab_type'] = viz_options[0]
+    viz_type = st.selectbox("Select visualization type:", viz_options, key=viz_key)
+
     try:
         if viz_type == "Correlation Analysis" and VISUALIZATION_ENHANCED and create_correlation_heatmap and len(numeric_cols) >= 2:
-            corr_fig = create_correlation_heatmap(df, theme="professional_dark")
-            st.plotly_chart(corr_fig, use_container_width=True)
+            with st.expander("Options", expanded=False):
+                # Stable checkboxes/slider: init once, then call with key only
+                mask_key = key_of("corr_mask")
+                annot_key = key_of("corr_annot")
+                thr_key = key_of("corr_thr")
+                if mask_key not in st.session_state:
+                    st.session_state[mask_key] = st.session_state.get('corr_mask_upper', False)
+                if annot_key not in st.session_state:
+                    st.session_state[annot_key] = st.session_state.get('corr_annotate', False)
+                if thr_key not in st.session_state:
+                    st.session_state[thr_key] = st.session_state.get('corr_threshold', 0.8)
+
+                mask_upper = st.checkbox("Hide upper triangle", key=mask_key)
+                annotate = st.checkbox("Annotate strong correlations only", key=annot_key)
+                threshold = st.slider("Annotation threshold |r|", 0.5, 0.99, st.session_state[thr_key], 0.01, key=thr_key)
+
+                # mirror to friendly names (non-breaking)
+                st.session_state['corr_mask_upper'] = mask_upper
+                st.session_state['corr_annotate'] = annotate
+                st.session_state['corr_threshold'] = threshold
+
+            corr_fig = create_correlation_heatmap(
+                df,
+                theme="professional_dark",
+                annotate_threshold=st.session_state['corr_threshold'] if st.session_state['corr_annotate'] else None,
+                mask_upper=st.session_state['corr_mask_upper']
+            )
+            st.plotly_chart(corr_fig, use_container_width=True, key=key_of("corr_fig"))
             
         elif viz_type == "Distribution Analysis" and VISUALIZATION_ENHANCED and create_distribution_grid and numeric_cols:
             dist_fig = create_distribution_grid(df, theme="professional_dark")
-            st.plotly_chart(dist_fig, use_container_width=True)
+            st.plotly_chart(dist_fig, use_container_width=True, key=key_of("dist_fig"))
             
         elif viz_type == "Missing Data Pattern" and VISUALIZATION_ENHANCED and create_missing_data_heatmap:
             missing_fig = create_missing_data_heatmap(df, theme="professional_dark")
-            st.plotly_chart(missing_fig, use_container_width=True)
+            st.plotly_chart(missing_fig, use_container_width=True, key=key_of("missing_fig"))
+        
+        elif viz_type == "ECDF" and VISUALIZATION_ENHANCED and create_ecdf_plot and numeric_cols:
+            ecdf_col_key = key_of("ecdf_col")
+            ecdf_norm_key = key_of("ecdf_norm")
+            # init once
+            if ('ecdf_column' not in st.session_state) or (st.session_state['ecdf_column'] not in numeric_cols):
+                st.session_state['ecdf_column'] = numeric_cols[0]
+            if st.session_state.get('ecdf_norm') not in ["percent", "probability"]:
+                st.session_state['ecdf_norm'] = "percent"
+            # widgets with key only
+            st.selectbox("Select numeric column:", numeric_cols, key=ecdf_col_key)
+            st.selectbox("Normalization", ["percent", "probability"], key=ecdf_norm_key)
+            # sync friendly names
+            st.session_state['ecdf_column'] = st.session_state[ecdf_col_key]
+            st.session_state['ecdf_norm'] = st.session_state[ecdf_norm_key]
+            ecdf_fig = create_ecdf_plot(df, st.session_state['ecdf_column'], theme="professional_dark", ecdfnorm=st.session_state['ecdf_norm'])
+            st.plotly_chart(ecdf_fig, use_container_width=True, key=key_of("ecdf_fig"))
+        
+        elif viz_type == "QQ-Plot" and VISUALIZATION_ENHANCED and create_qq_plot and numeric_cols:
+            qq_col_key = key_of("qq_col")
+            if ('qq_column' not in st.session_state) or (st.session_state['qq_column'] not in numeric_cols):
+                st.session_state['qq_column'] = numeric_cols[0]
+            st.selectbox("Select numeric column:", numeric_cols, key=qq_col_key)
+            st.session_state['qq_column'] = st.session_state[qq_col_key]
+            qq_fig = create_qq_plot(df, st.session_state['qq_column'], theme="professional_dark")
+            st.plotly_chart(qq_fig, use_container_width=True, key=key_of("qq_fig"))
         
         else:
             # Basic visualization fallback
             if numeric_cols:
-                selected_col = st.selectbox("Select column to visualize:", numeric_cols)
+                basic_col_key = key_of("basic_col")
+                basic_kind_key = key_of("basic_kind")
+                if (st.session_state.get('basic_col') not in numeric_cols):
+                    st.session_state['basic_col'] = numeric_cols[0]
+                if st.session_state.get('basic_kind') not in ["Histogram", "Box Plot", "Line Chart"]:
+                    st.session_state['basic_kind'] = "Histogram"
+                st.selectbox("Select column to visualize:", numeric_cols, key=basic_col_key)
+                st.session_state['basic_col'] = st.session_state[basic_col_key]
+                st.radio("Chart type:", ["Histogram", "Box Plot", "Line Chart"], key=basic_kind_key)
+                st.session_state['basic_kind'] = st.session_state[basic_kind_key]
+
+                if st.session_state['basic_kind'] == "Histogram":
+                    fig = px.histogram(df, x=st.session_state['basic_col'], title=f"Distribution of {st.session_state['basic_col']}")
+                elif st.session_state['basic_kind'] == "Box Plot":
+                    fig = px.box(df, y=st.session_state['basic_col'], title=f"Box Plot of {st.session_state['basic_col']}")
+                else:
+                    fig = px.line(df.reset_index(), x='index', y=st.session_state['basic_col'], title=f"Trend of {st.session_state['basic_col']}")
                 
-                if selected_col:
-                    viz_option = st.radio("Chart type:", ["Histogram", "Box Plot", "Line Chart"])
-                    
-                    if viz_option == "Histogram":
-                        fig = px.histogram(df, x=selected_col, title=f"Distribution of {selected_col}")
-                    elif viz_option == "Box Plot":
-                        fig = px.box(df, y=selected_col, title=f"Box Plot of {selected_col}")
-                    else:
-                        fig = px.line(df.reset_index(), x='index', y=selected_col, 
-                                    title=f"Trend of {selected_col}")
-                    
-                    fig.update_layout(
-                        plot_bgcolor='rgba(15, 23, 42, 0.8)',
-                        paper_bgcolor='rgba(15, 23, 42, 1)',
-                        font=dict(color='white')
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
+                fig.update_layout(
+                    plot_bgcolor='rgba(15, 23, 42, 0.8)',
+                    paper_bgcolor='rgba(15, 23, 42, 1)',
+                    font=dict(color='white')
+                )
+                st.plotly_chart(fig, use_container_width=True, key=key_of("basic_fig"))
             else:
                 st.info("No numeric columns available for visualization.")
                 
@@ -835,43 +1016,6 @@ def render_enhanced_forecasting_tab(df: pd.DataFrame):
     - Customer behavior forecasting
     - Risk assessment models
     """)
-    
-    # Basic trend analysis
-    date_cols = []
-    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-    
-    for col in df.select_dtypes(include=['object']).columns:
-        sample = df[col].dropna().head(50)
-        try:
-            pd.to_datetime(sample, errors='raise')
-            date_cols.append(col)
-        except:
-            continue
-    
-    if date_cols and numeric_cols:
-        st.markdown("**📈 Basic Trend Analysis**")
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            date_col = st.selectbox("Select date column:", date_cols)
-        with col2:
-            value_col = st.selectbox("Select value column:", numeric_cols)
-        
-        if date_col and value_col:
-            df_trend = df.copy()
-            df_trend[date_col] = pd.to_datetime(df_trend[date_col], errors='coerce')
-            df_trend = df_trend.dropna(subset=[date_col, value_col])
-            
-            if len(df_trend) > 1:
-                fig = px.line(df_trend.sort_values(date_col), 
-                            x=date_col, y=value_col, 
-                            title=f"Trend Analysis: {value_col} over {date_col}")
-                fig.update_layout(
-                    plot_bgcolor='rgba(15, 23, 42, 0.8)',
-                    paper_bgcolor='rgba(15, 23, 42, 1)',
-                    font=dict(color='white')
-                )
-                st.plotly_chart(fig, use_container_width=True)
 
 def render_enhanced_export_tab(df: pd.DataFrame):
     """Render enhanced export tab with fixed numpy handling."""
@@ -1146,7 +1290,7 @@ def main():
     st.markdown(f"""
     <div style="text-align: center; color: #6b7280; padding: 2rem; background: linear-gradient(135deg, rgba(15, 20, 25, 0.8), rgba(30, 41, 59, 0.6)); border-radius: 16px; margin-top: 2rem;">
         <div style="font-size: 1.3rem; font-weight: 700; margin-bottom: 0.5rem;">
-            🚀 <strong>CortexX Sales & Demand Forecasting Platform v2.2</strong>
+            🚀 <strong>CortexX Sales & Demand Forecasting Platform v2.4</strong>
         </div>
         <div style="font-size: 0.9rem; opacity: 0.9;">
             Professional Business Intelligence | Built with ❤️ using Streamlit
