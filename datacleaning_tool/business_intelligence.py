@@ -425,15 +425,19 @@ def create_executive_dashboard(df: pd.DataFrame,
     # Get color scheme
     colors = COLOR_SCHEMES.get(theme, COLOR_SCHEMES["professional_dark"])
     
-    # Create subplot structure with enhanced layout
+    # FIXED: Proper indentation for make_subplots call
     fig = make_subplots(
         rows=3, cols=3,
-        subplot_titles=('Revenue Trend', 'Category Performance', 'Daily Volume',
-                       'Revenue Distribution', 'Customer Segmentation', 'Performance Analysis',
-                       'Cumulative Revenue', 'Monthly Comparison', 'Anomaly Detection'),
-        specs=[[{"secondary_y": False}, {"type": "pie"}, {"type": "bar"}],
-              [{"type": "histogram"}, {"type": "sunburst"}, {"type": "scatter"}],
-              [{"type": "line"}, {"type": "bar"}, {"type": "scatter"}]],
+        subplot_titles=[
+            "Revenue Trend", "Category Performance", "Daily Volume",
+            "Revenue Distribution", "Customer Segmentation", "Performance Analysis", 
+            "Cumulative Revenue", "Monthly Comparison", "Anomaly Detection"
+        ],
+        specs=[
+            [{"secondary_y": False}, {"type": "pie"}, {"type": "bar"}],
+            [{"type": "histogram"}, {"type": "sunburst"}, {"type": "scatter"}],
+            [{"secondary_y": False}, {"type": "bar"}, {"secondary_y": False}]  # ✅ FIXED: No more 'line' type
+        ],
         vertical_spacing=0.1,
         horizontal_spacing=0.08,
         row_heights=[0.3, 0.3, 0.4]
@@ -809,6 +813,7 @@ def create_executive_dashboard(df: pd.DataFrame,
     )
     
     return fig
+
 
 def create_sales_performance_analysis(df: pd.DataFrame,
                                     revenue_col: str,
