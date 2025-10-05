@@ -15,17 +15,19 @@ import logging
 from typing import Optional, Dict, Any
 
 # Add src to path
-sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
+src_path = os.path.join(os.path.dirname(__file__), 'src')
+if src_path not in sys.path:
+    sys.path.append(src_path)
 
 try:
-    from src.data.collection import DataCollector
-    from src.data.preprocessing import DataPreprocessor
-    from src.data.exploration import DataExplorer
-    from src.features.engineering import FeatureEngineer
-    from src.features.selection import FeatureSelector
-    from src.models.training import ModelTrainer
-    from src.models.evaluation import ModelEvaluator
-    from src.visualization.dashboard import VisualizationEngine
+    from data.collection import DataCollector
+    from data.preprocessing import DataPreprocessor
+    from data.exploration import DataExplorer
+    from features.engineering import FeatureEngineer
+    from features.selection import FeatureSelector
+    from models.training import ModelTrainer
+    from models.evaluation import ModelEvaluator
+    from visualization.dashboard import VisualizationEngine
 except ImportError as e:
     st.error(f"Error importing modules: {e}")
     st.stop()
@@ -657,97 +659,97 @@ class CortexXDashboard:
                     st.error(f"Error in feature engineering: {str(e)}")
     
     def _render_model_training(self):
-    """Render model training section."""
-    if not st.session_state.data_loaded:
-        st.warning("⚠️ Please upload or generate data first.")
-        return
-    
-    df = st.session_state.current_data
-    
-    st.header("🤖 Model Training")
-    
-    st.markdown("""
-    Train multiple forecasting models and compare their performance.
-    """)
-    
-    # Model configuration
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # Target selection
-        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-        if not numeric_cols:
-            st.error("No numeric columns found for modeling.")
+        """Render model training section."""
+        if not st.session_state.data_loaded:
+            st.warning("⚠️ Please upload or generate data first.")
             return
-        target_col = st.selectbox("Select target variable", numeric_cols)
         
-        # Date column selection
-        date_cols = df.select_dtypes(include=['datetime64']).columns.tolist()
-        if not date_cols:
-            st.warning("No date column found. Using index as time reference.")
-            date_col = 'index'
-        else:
-            date_col = st.selectbox("Select date column", date_cols)
-    
-    with col2:
-        # Model selection
-        models_to_train = st.multiselect(
-            "Select models to train",
-            ["XGBoost", "LightGBM", "Ensemble"],
-            default=["XGBoost"]
-        )
+        df = st.session_state.current_data
         
-        # Train/test split
-        test_size = st.slider("Test set size (%)", 10, 40, 20)
-    
-    if st.button("🎯 Train Models", type="primary"):
-        with st.spinner("Training models... This may take a few minutes."):
-            try:
-                # Prepare data for training
-                train_df, test_df = self.model_trainer.train_test_split(
-                    df, date_col, target_col, test_size=test_size/100
-                )
-                
-                # Train selected models
-                trained_models = {}
-                model_results = {}
-                
-                for model_name in models_to_train:
-                    st.write(f"Training {model_name}...")
+        st.header("🤖 Model Training")
+        
+        st.markdown("""
+        Train multiple forecasting models and compare their performance.
+        """)
+        
+        # Model configuration
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Target selection
+            numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+            if not numeric_cols:
+                st.error("No numeric columns found for modeling.")
+                return
+            target_col = st.selectbox("Select target variable", numeric_cols)
+            
+            # Date column selection
+            date_cols = df.select_dtypes(include=['datetime64']).columns.tolist()
+            if not date_cols:
+                st.warning("No date column found. Using index as time reference.")
+                date_col = 'index'
+            else:
+                date_col = st.selectbox("Select date column", date_cols)
+        
+        with col2:
+            # Model selection
+            models_to_train = st.multiselect(
+                "Select models to train",
+                ["XGBoost", "LightGBM", "Ensemble"],
+                default=["XGBoost"]
+            )
+            
+            # Train/test split
+            test_size = st.slider("Test set size (%)", 10, 40, 20)
+        
+        if st.button("🎯 Train Models", type="primary"):
+            with st.spinner("Training models... This may take a few minutes."):
+                try:
+                    # Prepare data for training
+                    train_df, test_df = self.model_trainer.train_test_split(
+                        df, date_col, target_col, test_size=test_size/100
+                    )
                     
-                    # Initialize with None to handle undefined cases
-                    model = None
-                    results = None
+                    # Train selected models
+                    trained_models = {}
+                    model_results = {}
                     
-                    if model_name == "XGBoost":
-                        model, results = self.model_trainer.train_xgboost(
-                            train_df, test_df, date_col, target_col
-                        )
-                    elif model_name == "LightGBM":
-                        model, results = self.model_trainer.train_lightgbm(
-                            train_df, test_df, date_col, target_col
-                        )
-                    elif model_name == "Ensemble":
-                        model, results = self.model_trainer.train_ensemble(
-                            train_df, test_df, date_col, target_col
-                        )
+                    for model_name in models_to_train:
+                        st.write(f"Training {model_name}...")
+                        
+                        # Initialize with None to handle undefined cases
+                        model = None
+                        results = None
+                        
+                        if model_name == "XGBoost":
+                            model, results = self.model_trainer.train_xgboost(
+                                train_df, test_df, date_col, target_col
+                            )
+                        elif model_name == "LightGBM":
+                            model, results = self.model_trainer.train_lightgbm(
+                                train_df, test_df, date_col, target_col
+                            )
+                        elif model_name == "Ensemble":
+                            model, results = self.model_trainer.train_ensemble(
+                                train_df, test_df, date_col, target_col
+                            )
+                        
+                        # Only store if model and results were successfully created
+                        if model is not None and results is not None:
+                            trained_models[model_name] = model
+                            model_results[model_name] = results
+                        else:
+                            st.error(f"Failed to train {model_name}")
                     
-                    # Only store if model and results were successfully created
-                    if model is not None and results is not None:
-                        trained_models[model_name] = model
-                        model_results[model_name] = results
-                    else:
-                        st.error(f"Failed to train {model_name}")
-                
-                # Store in session state
-                st.session_state.trained_models = trained_models
-                st.session_state.model_results = model_results
-                st.session_state.models_trained = True
-                
-                st.success("✅ Models trained successfully!")
-                
-            except Exception as e:
-                st.error(f"Error training models: {str(e)}")
+                    # Store in session state
+                    st.session_state.trained_models = trained_models
+                    st.session_state.model_results = model_results
+                    st.session_state.models_trained = True
+                    
+                    st.success("✅ Models trained successfully!")
+                    
+                except Exception as e:
+                    st.error(f"Error training models: {str(e)}")
     
     def _render_forecasting(self):
         """Render forecasting section."""
