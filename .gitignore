@@ -26,12 +26,6 @@ data/external/
 *.xlsx
 *.json
 
-# Models
-models/
-*.pkl
-*.joblib
-*.h5
-*.pth
 
 # Logs
 logs/
