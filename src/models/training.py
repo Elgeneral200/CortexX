@@ -12,6 +12,22 @@ from sklearn.model_selection import TimeSeriesSplit
 from sklearn.preprocessing import StandardScaler
 import warnings
 
+# --- Imports جديدة ---
+from sklearn.linear_model import LinearRegression, Ridge, Lasso
+from sklearn.svm import SVR
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.ensemble import RandomForestRegressor, VotingRegressor
+import xgboost as xgb
+import lightgbm as lgb
+from catboost import CatBoostRegressor
+try:
+    from prophet import Prophet
+except ImportError:
+    Prophet = None
+# --- نهاية Imports الجديدة ---
+
+
 logger = logging.getLogger(__name__)
 
 class ModelTrainer:
@@ -24,18 +40,9 @@ class ModelTrainer:
         warnings.filterwarnings('ignore')
     
     def train_test_split(self, df: pd.DataFrame, date_col: str, target_col: str, 
-                        test_size: float = 0.2) -> Tuple[pd.DataFrame, pd.DataFrame]:
+                         test_size: float = 0.2) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """
         Split data into training and testing sets using time-based split.
-        
-        Args:
-            df (pd.DataFrame): Input dataframe
-            date_col (str): Date column name
-            target_col (str): Target column name
-            test_size (float): Proportion of data to use for testing
-            
-        Returns:
-            Tuple[pd.DataFrame, pd.DataFrame]: Training and testing dataframes
         """
         try:
             # Ensure data is sorted by date
@@ -55,21 +62,15 @@ class ModelTrainer:
             raise ValueError(f"Train-test split failed: {str(e)}")
     
     def train_prophet(self, train_df: pd.DataFrame, date_col: str, 
-                     target_col: str) -> Tuple[Any, Dict[str, Any]]:
+                      target_col: str) -> Tuple[Any, Dict[str, Any]]:
         """
         Train Facebook's Prophet model for time series forecasting.
-        
-        Args:
-            train_df (pd.DataFrame): Training data
-            date_col (str): Date column name
-            target_col (str): Target column name
-            
-        Returns:
-            Tuple[Any, Dict[str, Any]]: Trained model and training results
         """
-        try:
-            from prophet import Prophet
+        if Prophet is None:
+            self.logger.error("Prophet library not found. Skipping Prophet model.")
+            return self._create_dummy_model(train_df, date_col, target_col, 'Prophet (Skipped)')
             
+        try:
             # Prepare data for Prophet
             prophet_df = train_df[[date_col, target_col]].copy()
             prophet_df.columns = ['ds', 'y']
@@ -107,27 +108,14 @@ class ModelTrainer:
             
         except Exception as e:
             self.logger.error(f"Error training Prophet model: {str(e)}")
-            # Return a dummy model for demonstration
             return self._create_dummy_model(train_df, date_col, target_col, 'Prophet')
     
     def train_xgboost(self, train_df: pd.DataFrame, test_df: pd.DataFrame,
-                     date_col: str, target_col: str) -> Tuple[Any, Dict[str, Any]]:
+                      date_col: str, target_col: str) -> Tuple[Any, Dict[str, Any]]:
         """
         Train XGBoost model for time series forecasting.
-        
-        Args:
-            train_df (pd.DataFrame): Training data
-            test_df (pd.DataFrame): Testing data
-            date_col (str): Date column name
-            target_col (str): Target column name
-            
-        Returns:
-            Tuple[Any, Dict[str, Any]]: Trained model and training results
         """
         try:
-            import xgboost as xgb
-            
-            # Prepare features and target
             X_train, y_train = self._prepare_features(train_df, date_col, target_col)
             X_test, y_test = self._prepare_features(test_df, date_col, target_col)
             
@@ -136,7 +124,6 @@ class ModelTrainer:
             
             start_time = time.time()
             
-            # Train XGBoost model
             model = xgb.XGBRegressor(
                 n_estimators=100,
                 max_depth=6,
@@ -148,8 +135,6 @@ class ModelTrainer:
             model.fit(X_train, y_train)
             training_time = time.time() - start_time
             
-            # Make predictions
-            y_pred_train = model.predict(X_train)
             y_pred_test = model.predict(X_test)
             
             results = {
@@ -170,23 +155,11 @@ class ModelTrainer:
             return self._create_dummy_model(train_df, date_col, target_col, 'XGBoost')
     
     def train_lightgbm(self, train_df: pd.DataFrame, test_df: pd.DataFrame,
-                      date_col: str, target_col: str) -> Tuple[Any, Dict[str, Any]]:
+                       date_col: str, target_col: str) -> Tuple[Any, Dict[str, Any]]:
         """
         Train LightGBM model for time series forecasting.
-        
-        Args:
-            train_df (pd.DataFrame): Training data
-            test_df (pd.DataFrame): Testing data
-            date_col (str): Date column name
-            target_col (str): Target column name
-            
-        Returns:
-            Tuple[Any, Dict[str, Any]]: Trained model and training results
         """
         try:
-            import lightgbm as lgb
-            
-            # Prepare features and target
             X_train, y_train = self._prepare_features(train_df, date_col, target_col)
             X_test, y_test = self._prepare_features(test_df, date_col, target_col)
             
@@ -195,9 +168,8 @@ class ModelTrainer:
             
             start_time = time.time()
             
-            # Train LightGBM model
             model = lgb.LGBMRegressor(
-                n_estimators=100,
+                n_estimators=100, # Using 100 for consistency, notebook used 1000 with early stopping
                 max_depth=6,
                 learning_rate=0.1,
                 random_state=42,
@@ -207,7 +179,6 @@ class ModelTrainer:
             model.fit(X_train, y_train)
             training_time = time.time() - start_time
             
-            # Make predictions
             y_pred_test = model.predict(X_test)
             
             results = {
@@ -226,28 +197,293 @@ class ModelTrainer:
         except Exception as e:
             self.logger.error(f"Error training LightGBM model: {str(e)}")
             return self._create_dummy_model(train_df, date_col, target_col, 'LightGBM')
-    
-    def train_ensemble(self, train_df: pd.DataFrame, test_df: pd.DataFrame,
-                      date_col: str, target_col: str) -> Tuple[Any, Dict[str, Any]]:
-        """
-        Train ensemble model combining multiple algorithms.
-        
-        Args:
-            train_df (pd.DataFrame): Training data
-            test_df (pd.DataFrame): Testing data
-            date_col (str): Date column name
-            target_col (str): Target column name
-            
-        Returns:
-            Tuple[Any, Dict[str, Any]]: Trained ensemble and training results
-        """
+
+
+    """Trains a Linear Regression model."""
+    def train_linear_regression(self, train_df: pd.DataFrame, test_df: pd.DataFrame,
+                                  date_col: str, target_col: str) -> Tuple[Any, Dict[str, Any]]:
         try:
-            from sklearn.ensemble import VotingRegressor
-            import xgboost as xgb
-            import lightgbm as lgb
-            from sklearn.ensemble import RandomForestRegressor
+            X_train, y_train = self._prepare_features(train_df, date_col, target_col)
+            X_test, y_test = self._prepare_features(test_df, date_col, target_col)
             
-            # Prepare features and target
+            if X_train is None or X_test is None:
+                return self._create_dummy_model(train_df, date_col, target_col, 'LinearRegression')
+            
+            start_time = time.time()
+            
+            model = LinearRegression(n_jobs=-1)
+            model.fit(X_train, y_train)
+            
+            training_time = time.time() - start_time
+            y_pred_test = model.predict(X_test)
+            
+            results = {
+                'model': 'LinearRegression',
+                'training_time': training_time,
+                'model_object': model,
+                'actual': y_test,
+                'predictions': y_pred_test,
+                'dates': test_df[date_col].values
+            }
+            
+            self.logger.info("LinearRegression model training completed successfully")
+            return model, results
+            
+        except Exception as e:
+            self.logger.error(f"Error training LinearRegression model: {str(e)}")
+            return self._create_dummy_model(train_df, date_col, target_col, 'LinearRegression')
+
+        
+    """Trains a Ridge Regression model."""
+    def train_ridge(self, train_df: pd.DataFrame, test_df: pd.DataFrame,
+                    date_col: str, target_col: str) -> Tuple[Any, Dict[str, Any]]:
+        
+        
+        try:
+            X_train, y_train = self._prepare_features(train_df, date_col, target_col)
+            X_test, y_test = self._prepare_features(test_df, date_col, target_col)
+            
+            if X_train is None or X_test is None:
+                return self._create_dummy_model(train_df, date_col, target_col, 'Ridge')
+            
+            start_time = time.time()
+            
+            model = Ridge(random_state=42)
+            model.fit(X_train, y_train)
+            
+            training_time = time.time() - start_time
+            y_pred_test = model.predict(X_test)
+            
+            results = {
+                'model': 'Ridge',
+                'training_time': training_time,
+                'model_object': model,
+                'actual': y_test,
+                'predictions': y_pred_test,
+                'dates': test_df[date_col].values
+            }
+            
+            self.logger.info("Ridge model training completed successfully")
+            return model, results
+            
+        except Exception as e:
+            self.logger.error(f"Error training Ridge model: {str(e)}")
+            return self._create_dummy_model(train_df, date_col, target_col, 'Ridge')
+
+    """Trains a Lasso Regression model."""
+    def train_lasso(self, train_df: pd.DataFrame, test_df: pd.DataFrame,
+                    date_col: str, target_col: str) -> Tuple[Any, Dict[str, Any]]:
+        try:
+            X_train, y_train = self._prepare_features(train_df, date_col, target_col)
+            X_test, y_test = self._prepare_features(test_df, date_col, target_col)
+            
+            if X_train is None or X_test is None:
+                return self._create_dummy_model(train_df, date_col, target_col, 'Lasso')
+            
+            start_time = time.time()
+            
+            model = Lasso(random_state=42)
+            model.fit(X_train, y_train)
+            
+            training_time = time.time() - start_time
+            y_pred_test = model.predict(X_test)
+            
+            results = {
+                'model': 'Lasso',
+                'training_time': training_time,
+                'model_object': model,
+                'actual': y_test,
+                'predictions': y_pred_test,
+                'dates': test_df[date_col].values
+            }
+            
+            self.logger.info("Lasso model training completed successfully")
+            return model, results
+            
+        except Exception as e:
+            self.logger.error(f"Error training Lasso model: {str(e)}")
+            return self._create_dummy_model(train_df, date_col, target_col, 'Lasso')
+
+    """Trains a KNeighborsRegressor model."""
+    def train_knn(self, train_df: pd.DataFrame, test_df: pd.DataFrame,
+                    date_col: str, target_col: str) -> Tuple[Any, Dict[str, Any]]:
+        try:
+            X_train, y_train = self._prepare_features(train_df, date_col, target_col)
+            X_test, y_test = self._prepare_features(test_df, date_col, target_col)
+            
+            if X_train is None or X_test is None:
+                return self._create_dummy_model(train_df, date_col, target_col, 'KNeighbors')
+            
+            start_time = time.time()
+            
+            model = KNeighborsRegressor(n_jobs=-1)
+            model.fit(X_train, y_train)
+            
+            training_time = time.time() - start_time
+            y_pred_test = model.predict(X_test)
+            
+            results = {
+                'model': 'KNeighbors',
+                'training_time': training_time,
+                'model_object': model,
+                'actual': y_test,
+                'predictions': y_pred_test,
+                'dates': test_df[date_col].values
+            }
+            
+            self.logger.info("KNeighbors model training completed successfully")
+            return model, results
+            
+        except Exception as e:
+            self.logger.error(f"Error training KNeighbors model: {str(e)}")
+            return self._create_dummy_model(train_df, date_col, target_col, 'KNeighbors')
+
+    """Trains a DecisionTreeRegressor model."""
+    def train_decision_tree(self, train_df: pd.DataFrame, test_df: pd.DataFrame,
+                            date_col: str, target_col: str) -> Tuple[Any, Dict[str, Any]]:
+        try:
+            X_train, y_train = self._prepare_features(train_df, date_col, target_col)
+            X_test, y_test = self._prepare_features(test_df, date_col, target_col)
+            
+            if X_train is None or X_test is None:
+                return self._create_dummy_model(train_df, date_col, target_col, 'DecisionTree')
+            
+            start_time = time.time()
+            
+            model = DecisionTreeRegressor(random_state=42)
+            model.fit(X_train, y_train)
+            
+            training_time = time.time() - start_time
+            y_pred_test = model.predict(X_test)
+            
+            results = {
+                'model': 'DecisionTree',
+                'training_time': training_time,
+                'model_object': model,
+                'feature_importance': dict(zip(X_train.columns, model.feature_importances_)),
+                'actual': y_test,
+                'predictions': y_pred_test,
+                'dates': test_df[date_col].values
+            }
+            
+            self.logger.info("DecisionTree model training completed successfully")
+            return model, results
+            
+        except Exception as e:
+            self.logger.error(f"Error training DecisionTree model: {str(e)}")
+            return self._create_dummy_model(train_df, date_col, target_col, 'DecisionTree')
+
+    """Trains a Support Vector Regressor (SVR) model."""
+    def train_svr(self, train_df: pd.DataFrame, test_df: pd.DataFrame,
+                    date_col: str, target_col: str) -> Tuple[Any, Dict[str, Any]]:
+        try:
+            X_train, y_train = self._prepare_features(train_df, date_col, target_col)
+            X_test, y_test = self._prepare_features(test_df, date_col, target_col)
+            
+            if X_train is None or X_test is None:
+                return self._create_dummy_model(train_df, date_col, target_col, 'SVR')
+            
+            self.logger.warning("Training SVR. This can be slow and might benefit from scaling.")
+            
+            start_time = time.time()
+            
+            model = SVR()
+            model.fit(X_train, y_train)
+            
+            training_time = time.time() - start_time
+            y_pred_test = model.predict(X_test)
+            
+            results = {
+                'model': 'SVR',
+                'training_time': training_time,
+                'model_object': model,
+                'actual': y_test,
+                'predictions': y_pred_test,
+                'dates': test_df[date_col].values
+            }
+            
+            self.logger.info("SVR model training completed successfully")
+            return model, results
+            
+        except Exception as e:
+            self.logger.error(f"Error training SVR model: {str(e)}")
+            return self._create_dummy_model(train_df, date_col, target_col, 'SVR')
+
+    """Trains a RandomForestRegressor model."""
+    def train_random_forest(self, train_df: pd.DataFrame, test_df: pd.DataFrame,
+                            date_col: str, target_col: str) -> Tuple[Any, Dict[str, Any]]:
+        try:
+            X_train, y_train = self._prepare_features(train_df, date_col, target_col)
+            X_test, y_test = self._prepare_features(test_df, date_col, target_col)
+            
+            if X_train is None or X_test is None:
+                return self._create_dummy_model(train_df, date_col, target_col, 'RandomForest')
+            
+            start_time = time.time()
+            
+            model = RandomForestRegressor(random_state=42, n_jobs=-1, n_estimators=100)
+            model.fit(X_train, y_train)
+            
+            training_time = time.time() - start_time
+            y_pred_test = model.predict(X_test)
+            
+            results = {
+                'model': 'RandomForest',
+                'training_time': training_time,
+                'model_object': model,
+                'feature_importance': dict(zip(X_train.columns, model.feature_importances_)),
+                'actual': y_test,
+                'predictions': y_pred_test,
+                'dates': test_df[date_col].values
+            }
+            
+            self.logger.info("RandomForest model training completed successfully")
+            return model, results
+            
+        except Exception as e:
+            self.logger.error(f"Error training RandomForest model: {str(e)}")
+            return self._create_dummy_model(train_df, date_col, target_col, 'RandomForest')
+
+    """Trains a CatBoostRegressor model."""
+    def train_catboost(self, train_df: pd.DataFrame, test_df: pd.DataFrame,
+                       date_col: str, target_col: str) -> Tuple[Any, Dict[str, Any]]:
+        try:
+            X_train, y_train = self._prepare_features(train_df, date_col, target_col)
+            X_test, y_test = self._prepare_features(test_df, date_col, target_col)
+            
+            if X_train is None or X_test is None:
+                return self._create_dummy_model(train_df, date_col, target_col, 'CatBoost')
+            
+            start_time = time.time()
+            
+            model = CatBoostRegressor(random_state=42, verbose=0, n_estimators=100)
+            model.fit(X_train, y_train)
+            
+            training_time = time.time() - start_time
+            y_pred_test = model.predict(X_test)
+            
+            results = {
+                'model': 'CatBoost',
+                'training_time': training_time,
+                'model_object': model,
+                'feature_importance': dict(zip(X_train.columns, model.feature_importances_)),
+                'actual': y_test,
+                'predictions': y_pred_test,
+                'dates': test_df[date_col].values
+            }
+            
+            self.logger.info("CatBoost model training completed successfully")
+            return model, results
+            
+        except Exception as e:
+            self.logger.error(f"Error training CatBoost model: {str(e)}")
+            return self._create_dummy_model(train_df, date_col, target_col, 'CatBoost')
+
+
+    """Train ensemble model combining multiple algorithms (VotingRegressor)."""
+    def train_ensemble(self, train_df: pd.DataFrame, test_df: pd.DataFrame,
+                       date_col: str, target_col: str) -> Tuple[Any, Dict[str, Any]]:
+        try:
             X_train, y_train = self._prepare_features(train_df, date_col, target_col)
             X_test, y_test = self._prepare_features(test_df, date_col, target_col)
             
@@ -268,11 +504,10 @@ class ModelTrainer:
             ensemble.fit(X_train, y_train)
             training_time = time.time() - start_time
             
-            # Make predictions
             y_pred_test = ensemble.predict(X_test)
             
             results = {
-                'model': 'Ensemble',
+                'model': 'Ensemble (Voting)',
                 'training_time': training_time,
                 'model_object': ensemble,
                 'actual': y_test,
@@ -287,15 +522,18 @@ class ModelTrainer:
             self.logger.error(f"Error training ensemble model: {str(e)}")
             return self._create_dummy_model(train_df, date_col, target_col, 'Ensemble')
     
+    """Prepare features and target for machine learning models."""
     def _prepare_features(self, df: pd.DataFrame, date_col: str, target_col: str) -> Tuple[pd.DataFrame, pd.Series]:
-        """Prepare features and target for machine learning models."""
         try:
             # Select numeric features and exclude date and target
             feature_cols = df.select_dtypes(include=[np.number]).columns.tolist()
             feature_cols = [col for col in feature_cols if col not in [date_col, target_col]]
             
+            # Handle categorical features if any - CAVEAT: This needs proper handling
+            # For now, let's just use numeric features as per the original file
+            
             if not feature_cols:
-                self.logger.warning("No suitable features found for ML models")
+                self.logger.warning("No suitable numeric features found for ML models")
                 return None, None
             
             X = df[feature_cols].copy()
@@ -311,9 +549,9 @@ class ModelTrainer:
             self.logger.error(f"Error preparing features: {str(e)}")
             return None, None
     
+    """Create a dummy model for demonstration when real training fails."""
     def _create_dummy_model(self, df: pd.DataFrame, date_col: str, target_col: str, 
-                           model_name: str) -> Tuple[Any, Dict[str, Any]]:
-        """Create a dummy model for demonstration when real training fails."""
+                          model_name: str) -> Tuple[Any, Dict[str, Any]]:
         self.logger.warning(f"Creating dummy model for {model_name}")
         
         class DummyModel:
