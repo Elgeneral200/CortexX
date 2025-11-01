@@ -658,6 +658,100 @@ class CortexXDashboard:
                 except Exception as e:
                     st.error(f"Error in feature engineering: {str(e)}")
     
+    # def _render_model_training(self):
+    #     """Render model training section."""
+    #     if not st.session_state.data_loaded:
+    #         st.warning("⚠️ Please upload or generate data first.")
+    #         return
+        
+    #     df = st.session_state.current_data
+        
+    #     st.header("🤖 Model Training")
+        
+    #     st.markdown("""
+    #     Train multiple forecasting models and compare their performance.
+    #     """)
+        
+    #     # Model configuration
+    #     col1, col2 = st.columns(2)
+        
+    #     with col1:
+    #         # Target selection
+    #         numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    #         if not numeric_cols:
+    #             st.error("No numeric columns found for modeling.")
+    #             return
+    #         target_col = st.selectbox("Select target variable", numeric_cols)
+            
+    #         # Date column selection
+    #         date_cols = df.select_dtypes(include=['datetime64']).columns.tolist()
+    #         if not date_cols:
+    #             st.warning("No date column found. Using index as time reference.")
+    #             date_col = 'index'
+    #         else:
+    #             date_col = st.selectbox("Select date column", date_cols)
+        
+    #     with col2:
+    #         # Model selection
+    #         models_to_train = st.multiselect(
+    #             "Select models to train",
+    #             ["XGBoost", "LightGBM", "Ensemble"],
+    #             default=["XGBoost"]
+    #         )
+            
+    #         # Train/test split
+    #         test_size = st.slider("Test set size (%)", 10, 40, 20)
+        
+    #     if st.button("🎯 Train Models", type="primary"):
+    #         with st.spinner("Training models... This may take a few minutes."):
+    #             try:
+    #                 # Prepare data for training
+    #                 train_df, test_df = self.model_trainer.train_test_split(
+    #                     df, date_col, target_col, test_size=test_size/100
+    #                 )
+                    
+    #                 # Train selected models
+    #                 trained_models = {}
+    #                 model_results = {}
+                    
+    #                 for model_name in models_to_train:
+    #                     st.write(f"Training {model_name}...")
+                        
+    #                     # Initialize with None to handle undefined cases
+    #                     model = None
+    #                     results = None
+                        
+    #                     if model_name == "XGBoost":
+    #                         model, results = self.model_trainer.train_xgboost(
+    #                             train_df, test_df, date_col, target_col
+    #                         )
+    #                     elif model_name == "LightGBM":
+    #                         model, results = self.model_trainer.train_lightgbm(
+    #                             train_df, test_df, date_col, target_col
+    #                         )
+    #                     elif model_name == "Ensemble":
+    #                         model, results = self.model_trainer.train_ensemble(
+    #                             train_df, test_df, date_col, target_col
+    #                         )
+                        
+    #                     # Only store if model and results were successfully created
+    #                     if model is not None and results is not None:
+    #                         trained_models[model_name] = model
+    #                         model_results[model_name] = results
+    #                     else:
+    #                         st.error(f"Failed to train {model_name}")
+                    
+    #                 # Store in session state
+    #                 st.session_state.trained_models = trained_models
+    #                 st.session_state.model_results = model_results
+    #                 st.session_state.models_trained = True
+                    
+    #                 st.success("✅ Models trained successfully!")
+                    
+    #             except Exception as e:
+    #                 st.error(f"Error training models: {str(e)}")
+    
+
     def _render_model_training(self):
         """Render model training section."""
         if not st.session_state.data_loaded:
@@ -672,7 +766,23 @@ class CortexXDashboard:
         Train multiple forecasting models and compare their performance.
         """)
         
-        # Model configuration
+        # --- التعديل: خريطة الموديلات ---
+        # ربطنا الاسم بالدالة بتاعته من الكلاس
+        AVAILABLE_MODELS = {
+            "XGBoost": self.model_trainer.train_xgboost,
+            "LightGBM": self.model_trainer.train_lightgbm,
+            "RandomForest": self.model_trainer.train_random_forest,
+            "CatBoost": self.model_trainer.train_catboost,
+            "Lasso": self.model_trainer.train_lasso,
+            "Ridge": self.model_trainer.train_ridge,
+            "DecisionTree": self.model_trainer.train_decision_tree,
+            "KNeighbors": self.model_trainer.train_knn,
+            "SVR": self.model_trainer.train_svr,
+            "Ensemble (Voting)": self.model_trainer.train_ensemble 
+            # ملاحظة: Prophet ليه قصة تانية في تجهيز الداتا، خليه للـ ML موديلز دلوقتي
+        }
+        # --- نهاية التعديل ---
+
         col1, col2 = st.columns(2)
         
         with col1:
@@ -681,7 +791,9 @@ class CortexXDashboard:
             if not numeric_cols:
                 st.error("No numeric columns found for modeling.")
                 return
-            target_col = st.selectbox("Select target variable", numeric_cols)
+            target_col = st.selectbox("Select target variable", numeric_cols, 
+                                      index=numeric_cols.index(st.session_state.value_column) 
+                                      if st.session_state.value_column in numeric_cols else 0)
             
             # Date column selection
             date_cols = df.select_dtypes(include=['datetime64']).columns.tolist()
@@ -689,15 +801,18 @@ class CortexXDashboard:
                 st.warning("No date column found. Using index as time reference.")
                 date_col = 'index'
             else:
-                date_col = st.selectbox("Select date column", date_cols)
+                date_col = st.selectbox("Select date column", date_cols,
+                                        index=date_cols.index(st.session_state.date_column)
+                                        if st.session_state.date_column in date_cols else 0)
         
         with col2:
-            # Model selection
+            # --- التعديل: القايمة بقت أوتوماتيك ---
             models_to_train = st.multiselect(
                 "Select models to train",
-                ["XGBoost", "LightGBM", "Ensemble"],
-                default=["XGBoost"]
+                list(AVAILABLE_MODELS.keys()),  # <-- بقت بتقرأ من الخريطة
+                default=["XGBoost", "Lasso", "RandomForest", "LightGBM"] # اختارنا كذا واحد
             )
+            # --- نهاية التعديل ---
             
             # Train/test split
             test_size = st.slider("Test set size (%)", 10, 40, 20)
@@ -710,36 +825,32 @@ class CortexXDashboard:
                         df, date_col, target_col, test_size=test_size/100
                     )
                     
-                    # Train selected models
                     trained_models = {}
                     model_results = {}
                     
+                    # --- التعديل: التدريب بقى أذكى ---
                     for model_name in models_to_train:
-                        st.write(f"Training {model_name}...")
-                        
-                        # Initialize with None to handle undefined cases
-                        model = None
-                        results = None
-                        
-                        if model_name == "XGBoost":
-                            model, results = self.model_trainer.train_xgboost(
-                                train_df, test_df, date_col, target_col
-                            )
-                        elif model_name == "LightGBM":
-                            model, results = self.model_trainer.train_lightgbm(
-                                train_df, test_df, date_col, target_col
-                            )
-                        elif model_name == "Ensemble":
-                            model, results = self.model_trainer.train_ensemble(
+                        if model_name in AVAILABLE_MODELS:
+                            st.write(f"Training {model_name}...")
+                            
+                            # ندهنا الدالة من الخريطة
+                            model_function = AVAILABLE_MODELS[model_name]
+                            
+                            # Initialize with None to handle undefined cases
+                            model = None
+                            results = None
+
+                            model, results = model_function(
                                 train_df, test_df, date_col, target_col
                             )
                         
-                        # Only store if model and results were successfully created
-                        if model is not None and results is not None:
-                            trained_models[model_name] = model
-                            model_results[model_name] = results
-                        else:
-                            st.error(f"Failed to train {model_name}")
+                            # Only store if model and results were successfully created
+                            if model is not None and results is not None:
+                                trained_models[model_name] = model
+                                model_results[model_name] = results
+                            else:
+                                st.error(f"Failed to train {model_name}")
+                    # --- نهاية التعديل ---
                     
                     # Store in session state
                     st.session_state.trained_models = trained_models
@@ -750,80 +861,230 @@ class CortexXDashboard:
                     
                 except Exception as e:
                     st.error(f"Error training models: {str(e)}")
-    
+
+
+
+    # def _render_forecasting(self):
+    #     """Render forecasting section."""
+    #     if not st.session_state.models_trained:
+    #         st.warning("⚠️ Please train models first in the Model Training section.")
+    #         return
+        
+    #     st.header("📈 Forecasting")
+        
+    #     st.info("Forecasting module ready - model training completed successfully!")
+        
+    #     # Simple forecasting interface
+    #     st.subheader("Generate Forecasts")
+        
+    #     col1, col2 = st.columns(2)
+        
+    #     with col1:
+    #         forecast_days = st.slider("Forecast horizon (days)", 7, 90, 30)
+        
+    #     with col2:
+    #         selected_model = st.selectbox(
+    #             "Select model for forecasting",
+    #             list(st.session_state.trained_models.keys())
+    #         )
+        
+    #     if st.button("🔮 Generate Forecast", type="primary"):
+    #         with st.spinner("Generating forecasts..."):
+    #             try:
+    #                 # Simple forecast simulation
+    #                 df = st.session_state.current_data
+    #                 last_date = df[st.session_state.date_column].max()
+                    
+    #                 # Create future dates
+    #                 future_dates = pd.date_range(
+    #                     start=last_date + timedelta(days=1),
+    #                     periods=forecast_days,
+    #                     freq='D'
+    #                 )
+                    
+    #                 # Simulate forecast (in a real implementation, this would use the actual model)
+    #                 base_value = df[st.session_state.value_column].mean()
+    #                 forecast_values = base_value * (1 + np.random.normal(0, 0.1, forecast_days))
+                    
+    #                 # Create forecast dataframe
+    #                 forecast_df = pd.DataFrame({
+    #                     'Date': future_dates,
+    #                     'Forecast': forecast_values,
+    #                     'Model': selected_model
+    #                 })
+                    
+    #                 st.success(f"✅ Forecast generated for {forecast_days} days!")
+                    
+    #                 # Display forecast
+    #                 st.subheader("📊 Forecast Results")
+    #                 st.dataframe(forecast_df, width='stretch')
+                    
+    #                 # Plot forecast
+    #                 fig = go.Figure()
+    #                 fig.add_trace(go.Scatter(
+    #                     x=df[st.session_state.date_column],
+    #                     y=df[st.session_state.value_column],
+    #                     name='Historical Data'
+    #                 ))
+    #                 fig.add_trace(go.Scatter(
+    #                     x=forecast_df['Date'],
+    #                     y=forecast_df['Forecast'],
+    #                     name=f'{selected_model} Forecast',
+    #                     line=dict(dash='dash')
+    #                 ))
+    #                 fig.update_layout(title=f'Sales Forecast - {selected_model}')
+    #                 st.plotly_chart(fig, use_container_width=True)
+                    
+    #             except Exception as e:
+    #                 st.error(f"Error generating forecast: {str(e)}")
+
     def _render_forecasting(self):
         """Render forecasting section."""
         if not st.session_state.models_trained:
             st.warning("⚠️ Please train models first in the Model Training section.")
             return
-        
+
         st.header("📈 Forecasting")
-        
+
         st.info("Forecasting module ready - model training completed successfully!")
-        
-        # Simple forecasting interface
+
         st.subheader("Generate Forecasts")
-        
+
         col1, col2 = st.columns(2)
-        
+
         with col1:
             forecast_days = st.slider("Forecast horizon (days)", 7, 90, 30)
-        
+
         with col2:
             selected_model = st.selectbox(
                 "Select model for forecasting",
                 list(st.session_state.trained_models.keys())
             )
-        
-        if st.button("🔮 Generate Forecast", type="primary"):
+
+        # generate forecasting
+        if st.button("🔮 Generate Forecast", type="primary") or "forecast_df" not in st.session_state:
             with st.spinner("Generating forecasts..."):
                 try:
-                    # Simple forecast simulation
                     df = st.session_state.current_data
                     last_date = df[st.session_state.date_column].max()
-                    
-                    # Create future dates
+
+                    # Generate fake forecast
                     future_dates = pd.date_range(
                         start=last_date + timedelta(days=1),
                         periods=forecast_days,
                         freq='D'
                     )
-                    
-                    # Simulate forecast (in a real implementation, this would use the actual model)
                     base_value = df[st.session_state.value_column].mean()
                     forecast_values = base_value * (1 + np.random.normal(0, 0.1, forecast_days))
-                    
-                    # Create forecast dataframe
+
                     forecast_df = pd.DataFrame({
                         'Date': future_dates,
                         'Forecast': forecast_values,
                         'Model': selected_model
                     })
-                    
+
+                    # sessions state to avoid reloading
+                    st.session_state["forecast_df"] = forecast_df
+                    st.session_state["historical_df"] = df
+                    st.session_state["selected_model"] = selected_model
+
                     st.success(f"✅ Forecast generated for {forecast_days} days!")
-                    
-                    # Display forecast
-                    st.subheader("📊 Forecast Results")
-                    st.dataframe(forecast_df, width='stretch')
-                    
-                    # Plot forecast
-                    fig = go.Figure()
-                    fig.add_trace(go.Scatter(
-                        x=df[st.session_state.date_column],
-                        y=df[st.session_state.value_column],
-                        name='Historical Data'
-                    ))
-                    fig.add_trace(go.Scatter(
-                        x=forecast_df['Date'],
-                        y=forecast_df['Forecast'],
-                        name=f'{selected_model} Forecast',
-                        line=dict(dash='dash')
-                    ))
-                    fig.update_layout(title=f'Sales Forecast - {selected_model}')
-                    st.plotly_chart(fig, use_container_width=True)
-                    
+
                 except Exception as e:
                     st.error(f"Error generating forecast: {str(e)}")
+                    return
+
+        # ✅ لو فيه توقعات محفوظة نعرضها من غير ما تختفي
+        if "forecast_df" in st.session_state:
+            forecast_df = st.session_state["forecast_df"]
+            df = st.session_state["historical_df"]
+            selected_model = st.session_state["selected_model"]
+
+            st.subheader("📊 Forecast Results")
+            st.dataframe(forecast_df, width='stretch')
+
+            #slider for controlling the intervals of the graph
+            min_date = df[st.session_state.date_column].min()
+            max_date = forecast_df['Date'].max()
+
+            if "forecast_slider" not in st.session_state:
+                st.session_state["forecast_slider"] = (min_date.to_pydatetime(), max_date.to_pydatetime())
+
+            st.slider(
+                "🕒 Select date range to display",
+                min_value=min_date.to_pydatetime(),
+                max_value=max_date.to_pydatetime(),
+                value=st.session_state["forecast_slider"],
+                format="YYYY-MM-DD",
+                key="forecast_slider"
+            )
+
+            time_range = st.session_state["forecast_slider"]
+
+            df_filtered = df[
+                (df[st.session_state.date_column] >= time_range[0]) &
+                (df[st.session_state.date_column] <= time_range[1])
+            ]
+            forecast_filtered = forecast_df[
+                (forecast_df['Date'] >= time_range[0]) &
+                (forecast_df['Date'] <= time_range[1])
+            ]
+
+            #ploting
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(
+                x=df_filtered[st.session_state.date_column],
+                y=df_filtered[st.session_state.value_column],
+                name='Historical Data'
+            ))
+            fig.add_trace(go.Scatter(
+                x=forecast_filtered['Date'],
+                y=forecast_filtered['Forecast'],
+                name=f'{selected_model} Forecast',
+                line=dict(dash='dash')
+            ))
+            fig.update_layout(
+                title=f'Sales Forecast - {selected_model}',
+                xaxis_title="Date",
+                yaxis_title="Value",
+                hovermode="x unified"
+            )
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # ---------- New Forecast Chart ----------
+            st.subheader("📉 Forecast Deviation Analysis")
+
+            # Calculate how much forecast differs from the mean value
+            mean_value = df[st.session_state.value_column].mean()
+            forecast_df["Deviation"] = ((forecast_df["Forecast"] - mean_value) / mean_value) * 100
+
+            # Create deviation chart
+            fig_dev = go.Figure()
+            fig_dev.add_trace(go.Bar(
+                x=forecast_df["Date"],
+                y=forecast_df["Deviation"],
+                name="Deviation (%)",
+                marker_color="orange"
+            ))
+            fig_dev.add_shape(
+                type="line",
+                x0=forecast_df["Date"].min(),
+                x1=forecast_df["Date"].max(),
+                y0=0,
+                y1=0,
+                line=dict(color="black", width=1, dash="dot")
+            )
+            fig_dev.update_layout(
+                title="Forecast Deviation from Mean Value (%)",
+                xaxis_title="Date",
+                yaxis_title="Deviation (%)",
+                hovermode="x unified",
+                showlegend=False
+            )
+            st.plotly_chart(fig_dev, use_container_width=True)
+
+
+
     
     def _render_results_reports(self):
         """Render results and reports section."""
@@ -835,63 +1096,66 @@ class CortexXDashboard:
         
         st.success("✅ Model training completed successfully!")
         
-        # Model comparison
+        # --- التعديل: هنستخدم الـ Evaluator بتاعنا ---
         st.subheader("📈 Model Performance Comparison")
         
         try:
             model_results = st.session_state.model_results
             
-            # Create performance table
-            performance_data = []
-            for model_name, results in model_results.items():
-                if 'actual' in results and 'predictions' in results:
-                    # Calculate basic metrics
-                    from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-                    
-                    y_true = results['actual']
-                    y_pred = results['predictions']
-                    
-                    # Handle different array lengths
-                    min_len = min(len(y_true), len(y_pred))
-                    y_true = y_true[:min_len]
-                    y_pred = y_pred[:min_len]
-                    
-                    performance_data.append({
-                        'Model': model_name,
-                        'RMSE': np.sqrt(mean_squared_error(y_true, y_pred)),
-                        'MAE': mean_absolute_error(y_true, y_pred),
-                        'R²': r2_score(y_true, y_pred),
-                        'Training Time (s)': results.get('training_time', 'N/A')
-                    })
+            if not model_results:
+                st.info("No models were trained successfully.")
+                return
+
+            # استخدمنا الكلاس بتاعنا عشان يعمل التقرير (وده هيعمل الموديل الهجين)
+            report = self.model_evaluator.generate_evaluation_report(model_results)
             
-            if performance_data:
-                performance_df = pd.DataFrame(performance_data)
-                st.dataframe(performance_df, width='stretch')
+            performance_df = pd.DataFrame(report['model_comparison'])
+            
+            if not performance_df.empty:
+                st.dataframe(performance_df.style.highlight_min(subset=['RMSE', 'MAE'], color='lightgreen'), width='stretch')
                 
                 # Best model
-                best_model = performance_df.loc[performance_df['RMSE'].idxmin()]
-                st.info(f"🎯 **Best Model**: {best_model['Model']} (RMSE: {best_model['RMSE']:.2f})")
+                best_model_name = report['best_model']
+                if best_model_name and best_model_name != 'No valid model found':
+                    best_model_metrics = performance_df[performance_df['Model'] == best_model_name].iloc[0]
+                    st.info(f"🎯 **Best Model**: {best_model_name} (RMSE: {best_model_metrics['RMSE']:.2f})")
+                else:
+                    st.warning("Could not determine best model (check for training errors or NaN values).")
             else:
-                st.info("Performance metrics will be available after model training.")
+                st.info("Performance metrics could not be calculated.")
                 
         except Exception as e:
             st.error(f"Error displaying results: {str(e)}")
-        
-        # Recommendations
+            logger.error(f"Error in results report: {e}")
+        # --- نهاية التعديل ---
+
+        # Recommendations (ده من الكود القديم بس عدلناه عشان يقرأ من التقرير)
         st.subheader("💡 Recommendations")
-        st.markdown("""
-        Based on your model performance:
-        
-        - **Inventory Management**: Use forecasts to optimize stock levels
-        - **Promotional Planning**: Schedule promotions during predicted high-demand periods  
-        - **Staffing Optimization**: Adjust staffing based on weekly seasonality patterns
-        - **Budget Planning**: Use forecasts for accurate revenue projections
-        """)
+        if 'report' in locals() and report.get('recommendations'):
+            for rec in report['recommendations']:
+                 st.markdown(f"- {rec}")
+        else:
+            st.markdown("""
+            - **Inventory Management**: Use forecasts to optimize stock levels
+            - **Promotional Planning**: Schedule promotions during predicted high-demand periods  
+            """)
         
         # Export report
         st.subheader("📄 Export Report")
         if st.button("📤 Generate Comprehensive Report"):
-            st.success("Report generated successfully! (Export functionality ready)")
+            # ده ممكن نخليه يحفظ التقرير كـ CSV
+            if 'performance_df' in locals():
+                csv = performance_df.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="Download Report as CSV",
+                    data=csv,
+                    file_name="model_performance_report.csv",
+                    mime="text/csv",
+                )
+                st.success("Report generated successfully!")
+            else:
+                st.error("No performance data to generate report.")
+
 
 def main():
     """Main function to run the CortexX dashboard."""
