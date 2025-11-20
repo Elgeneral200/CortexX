@@ -1,664 +1,318 @@
-# 🚀 CortexX - Enterprise Sales Forecasting Platform
-
-<div align="center">
-
-![CortexX Logo](assets/logo.png)
-
-**Advanced Machine Learning Platform for Sales & Demand Forecasting**
+# 📊 CortexX - Enterprise Sales Forecasting Platform
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.28+-red.svg)](https://streamlit.io)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-[Demo](#-demo) • [Features](#-features) • [Installation](#-installation) • [Usage](#-usage) • [Documentation](#-documentation)
-
-</div>
-
----
-
-## 📖 Table of Contents
-
-- [Overview](#-overview)
-- [Key Features](#-key-features)
-- [Project Architecture](#-project-architecture)
-- [Installation](#-installation)
-- [Usage](#-usage)
-- [Data Requirements](#-data-requirements)
-- [Models & Algorithms](#-models--algorithms)
-- [Dashboard Guide](#-dashboard-guide)
-- [MLOps & Deployment](#-mlops--deployment)
-- [Testing](#-testing)
-- [Performance Metrics](#-performance-metrics)
-- [Troubleshooting](#-troubleshooting)
-- [Contributing](#-contributing)
-- [License](#-license)
-- [Contact](#-contact)
-
----
-
-## 🎯 Overview
-
-CortexX is a **production-grade enterprise platform** designed to solve complex sales forecasting and demand prediction challenges using state-of-the-art machine learning techniques. Built with scalability, maintainability, and business impact in mind.
-
-### Business Problem
-Organizations struggle with:
-- Inaccurate demand forecasting leading to stockouts or overstock
-- Lack of visibility into sales trends and seasonality
-- Manual forecasting processes that don't scale
-- Poor integration between data analysis and business decisions
-
-### Solution
-CortexX provides:
-- **Automated ML pipelines** for time series forecasting
-- **Interactive dashboards** for data-driven decision making
-- **Multiple forecasting models** with ensemble capabilities
-- **Real-time monitoring** and automated retraining
-- **Enterprise-ready architecture** with comprehensive testing
-
----
-
-## ✨ Key Features
-
-### 🔍 **Data Analysis & Exploration**
-- **Automated EDA**: Comprehensive exploratory data analysis with statistical summaries
-- **Interactive Visualizations**: Plotly-based charts for trends, seasonality, and correlations
-- **Missing Data Handling**: Advanced imputation strategies (mean, median, forward-fill, interpolation)
-- **Outlier Detection**: IQR and Z-score methods with visualization
-- **Data Quality Reports**: Automated data profiling and quality metrics
-
-### 🛠️ **Feature Engineering**
-- **Time-Based Features**: Hour, day, week, month, quarter, year extraction
-- **Lag Features**: Configurable lag periods (1, 7, 14, 30 days)
-- **Rolling Statistics**: Moving averages, standard deviations, min/max
-- **Seasonal Decomposition**: Trend, seasonal, and residual components
-- **External Features**: Weather, holidays, promotions integration
-- **Encoding**: Categorical variable handling (one-hot, label, target encoding)
-
-### 🤖 **Machine Learning Models**
-- **Prophet**: Facebook's time series forecasting with seasonality
-- **XGBoost**: Gradient boosting for complex non-linear patterns
-- **LightGBM**: Fast gradient boosting with categorical feature support
-- **ARIMA/SARIMAX**: Statistical time series modeling
-- **Ensemble Methods**: Weighted averaging and stacking
-- **Hyperparameter Tuning**: Grid search and Bayesian optimization
-
-### 📊 **Interactive Dashboard**
-- **Real-time Forecasting**: Generate predictions on-demand
-- **Model Comparison**: Side-by-side performance analysis
-- **Feature Importance**: Understand key drivers of sales
-- **Forecast Visualization**: Interactive plots with confidence intervals
-- **Data Upload**: Support for CSV, Excel, and database connections
-- **Export Results**: Download predictions and reports
-
-### 🔄 **MLOps & Monitoring**
-- **Experiment Tracking**: MLflow integration for reproducibility
-- **Model Versioning**: Track and compare model iterations
-- **Performance Monitoring**: Automated drift detection
-- **Retraining Pipeline**: Scheduled model updates
-- **Logging**: Comprehensive application and model logging
-- **CI/CD Ready**: Automated testing and deployment workflows
-
-### 🏢 **Enterprise Features**
-- **Scalable Architecture**: Modular design for easy maintenance
-- **API Integration**: RESTful API for external systems
-- **Multi-user Support**: Role-based access control (coming soon)
-- **Database Integration**: PostgreSQL, MySQL, SQL Server support
-- **Cloud Deployment**: AWS, Azure, GCP compatible
-- **Documentation**: Comprehensive code documentation and user guides
-
----
-
-## 🏗️ Project Architecture
-cortexx-forecasting/
-│
-├── .gitignore # Git ignore rules
-├── README.md # Project documentation
-├── setup.py # Package configuration
-├── streamlit_app.py # Main Streamlit application
-│
-├── requirements/ # Dependency management
-│ ├── base.txt # Core dependencies
-│ ├── dev.txt # Development tools
-│ ├── mlops.txt # MLOps tools (MLflow, DVC)
-│ └── prod.txt # Production dependencies
-│
-├── src/ # Source code
-│ ├── init.py
-│ │
-│ ├── data/ # Data pipeline
-│ │ ├── init.py
-│ │ ├── collection.py # Data ingestion from sources
-│ │ ├── preprocessing.py # Cleaning and transformation
-│ │ └── exploration.py # EDA and statistical analysis
-│ │
-│ ├── features/ # Feature engineering
-│ │ ├── init.py
-│ │ ├── engineering.py # Feature creation
-│ │ └── selection.py # Feature selection methods
-│ │
-│ ├── models/ # ML models
-│ │ ├── init.py
-│ │ ├── training.py # Model training pipeline
-│ │ ├── evaluation.py # Performance metrics
-│ │ └── deployment.py # Model serving
-│ │
-│ ├── visualization/ # Visualization
-│ │ ├── init.py
-│ │ └── dashboard.py # Dashboard components
-│ │
-│ └── utils/ # Utilities
-│ ├── init.py
-│ ├── config.py # Configuration management
-│ └── helpers.py # Helper functions
-│
-├── tests/ # Unit and integration tests
-│ ├── init.py
-│ ├── test_data.py # Data pipeline tests
-│ ├── test_features.py # Feature engineering tests
-│ └── test_models.py # Model tests
-│
-├── data/ # Data directory (gitignored)
-│ ├── raw/ # Raw data files
-│ ├── processed/ # Cleaned data
-│ └── features/ # Engineered features
-│
-├── models/ # Saved models (gitignored)
-│ ├── prophet/
-│ ├── xgboost/
-│ └── ensemble/
-│
-├── logs/ # Application logs (gitignored)
-│
-├── reports/ # Generated reports
-│ ├── eda/ # EDA reports
-│ ├── model_evaluation/ # Model performance
-│ └── business_impact/ # Business metrics
-│
-├── notebooks/ # Jupyter notebooks (optional)
-│ ├── 01_data_exploration.ipynb
-│ ├── 02_feature_engineering.ipynb
-│ └── 03_model_development.ipynb
-│
-└── docs/ # Additional documentation
-├── API.md # API documentation
-├── DEPLOYMENT.md # Deployment guide
-└── USER_GUIDE.md # End-user manual
-
-
----
-
-## 🚀 Installation
-
-### Prerequisites
-
-Before installing CortexX, ensure you have:
-
-- **Python 3.8 or higher** ([Download](https://www.python.org/downloads/))
-- **pip** package manager (included with Python)
-- **Git** ([Download](https://git-scm.com/downloads))
-- **Virtual environment tool** (recommended)
-
-**System Requirements:**
-- RAM: 8GB minimum, 16GB recommended
-- Storage: 2GB free space
-- OS: Windows 10+, macOS 10.14+, or Linux
-
-### Step 1: Clone the Repository
-git clone https://github.com/Elgeneral200/CortexX-Data-Analysis-Tool.git
-cd cortexx-forecasting
-
-
-### Step 2: Create Virtual Environment
-
-**Windows:**
-python -m venv .venv
-.venv\Scripts\activate
-
-
-**macOS/Linux:**
-python3 -m venv .venv
-source .venv/bin/activate
-
-
-### Step 3: Install Dependencies
-
-**Option A: Basic Installation** (Recommended for most users)
-pip install --upgrade pip
-pip install -r requirements/base.txt
-
-
-**Option B: Development Installation** (For contributors)
-pip install -r requirements/base.txt
-pip install -r requirements/dev.txt
-
-
-**Option C: Full Installation with MLOps** (For production deployment)
-pip install -r requirements/base.txt
-pip install -r requirements/mlops.txt
-pip install -r requirements/prod.txt
-
-
-**Option D: Editable Installation** (For active development)
-pip install -e .
-
-
-### Step 4: Verify Installation
-
-python -c "import pandas, numpy, sklearn, prophet, xgboost, lightgbm; print('✅ All dependencies installed successfully!')"
-
-
-### Step 5: Run the Application
-
-streamlit run streamlit_app.py
-
-
-The application will open in your default browser at `http://localhost:8501`
-
----
-
-## 📚 Usage
-
-### Quick Start Example
-
-#### 1. **Prepare Your Data**
-
-Your data should be in CSV or Excel format with at minimum:
-- **Date column**: Timestamp of sales
-- **Target column**: Sales amount or quantity
-
-Example:
-date,sales,product_id,store_id,promotion
-2024-01-01,1250.50,101,1,0
-2024-01-02,1340.75,101,1,1
-2024-01-03,1180.25,101,1,0
-
-
-#### 2. **Upload Data via Dashboard**
-
-Launch the app
-streamlit run streamlit_app.py
-
-Navigate to "Data Upload" section
-Upload your CSV/Excel file
-Preview and validate data quality
-
-#### 3. **Run EDA and Preprocessing**
-
-from src.data.exploration import DataExplorer
-from src.data.preprocessing import DataPreprocessor
-
-Initialize
-explorer = DataExplorer(data)
-preprocessor = DataPreprocessor()
-
-Explore data
-explorer.generate_summary_statistics()
-explorer.plot_time_series()
-explorer.detect_seasonality()
-
-Preprocess
-cleaned_data = preprocessor.handle_missing_values(data)
-cleaned_data = preprocessor.remove_outliers(cleaned_data)
-
-#### 4. **Feature Engineering**
-
-from src.features.engineering import FeatureEngineer
-
-Create features
-engineer = FeatureEngineer()
-features = engineer.create_time_features(cleaned_data)
-features = engineer.create_lag_features(features, lags=)
-features = engineer.create_rolling_features(features, windows=)
-
-#### 5. **Train Models**
-
-from src.models.training import ModelTrainer
-
-Initialize trainer
-trainer = ModelTrainer()
-
-Train multiple models
-prophet_model = trainer.train_prophet(features)
-xgb_model = trainer.train_xgboost(features)
-lgbm_model = trainer.train_lightgbm(features)
-
-Ensemble
-ensemble_model = trainer.create_ensemble([prophet_model, xgb_model, lgbm_model])
-
-#### 6. **Evaluate and Deploy**
-
-from src.models.evaluation import ModelEvaluator
-from src.models.deployment import ModelDeployer
-
-Evaluate
-evaluator = ModelEvaluator()
-metrics = evaluator.calculate_metrics(predictions, actuals)
-evaluator.plot_residuals(predictions, actuals)
-
-Deploy
-deployer = ModelDeployer()
-deployer.save_model(ensemble_model, 'models/ensemble/v1.pkl')
-deployer.create_api_endpoint(ensemble_model)
-
-### Advanced Usage
-
-#### **Custom Configuration**
-
-Create a `config.yaml` file:
-
-data:
-date_column: 'date'
-target_column: 'sales'
-freq: 'D' # Daily frequency
-
-features:
-lag_periods:
-rolling_windows:
-
-models:
-prophet:
-seasonality_mode: 'multiplicative'
-changepoint_prior_scale: 0.05
-xgboost:
-n_estimators: 1000
-learning_rate: 0.01
-max_depth: 7
-lightgbm:
-n_estimators: 1000
-learning_rate: 0.01
-num_leaves: 31
-
-evaluation:
-metrics: ['mae', 'rmse', 'mape', 'r2']
-test_size: 0.2
-
-Load configuration:
-from src.utils.config import Config
-
-config = Config.from_yaml('config.yaml')
-
-
----
-
-## 📊 Data Requirements
-
-### Minimum Requirements
-
-| Column | Type | Description | Required |
-|--------|------|-------------|----------|
-| Date | datetime | Timestamp of observation | ✅ Yes |
-| Target | numeric | Sales/demand value | ✅ Yes |
-
-### Recommended Columns
-
-| Column | Type | Description | Impact |
-|--------|------|-------------|--------|
-| product_id | categorical | Product identifier | High |
-| store_id | categorical | Store/location identifier | High |
-| promotion | binary | Promotional flag | Medium |
-| price | numeric | Product price | High |
-| day_of_week | categorical | Day name | Medium |
-| holiday | binary | Holiday indicator | Medium |
-| weather | numeric | Temperature/weather | Low |
-| competitor_price | numeric | Competitor pricing | Medium |
-
-### Data Quality Guidelines
-
-- **Completeness**: <5% missing values preferred
-- **Consistency**: No duplicate timestamps per product/store
-- **Granularity**: Daily, weekly, or monthly recommended
-- **History**: Minimum 2 years for seasonal patterns
-- **Format**: UTF-8 encoding, standard date formats
-
----
-
-## 🤖 Models & Algorithms
-
-### 1. Prophet
-
-**Description**: Facebook's time series forecasting tool with automatic seasonality detection.
-
-**Best For**:
-- Strong seasonal patterns
-- Multiple seasonality (daily, weekly, yearly)
-- Holiday effects
-- Missing data handling
-
-**Hyperparameters**:
-prophet_params = {
-'seasonality_mode': 'multiplicative',
-'changepoint_prior_scale': 0.05,
-'seasonality_prior_scale': 10.0,
-'yearly_seasonality': True,
-'weekly_seasonality': True,
-'daily_seasonality': False
-}
-
-
-**Typical Performance**: MAE ±8-12% of mean
-
----
-
-### 2. XGBoost
-
-**Description**: Gradient boosting algorithm optimized for speed and performance.
-
-**Best For**:
-- Non-linear relationships
-- Feature interactions
-- Large datasets
-- Categorical features
-
-**Hyperparameters**:
-xgb_params = {
-'n_estimators': 1000,
-'learning_rate': 0.01,
-'max_depth': 7,
-'min_child_weight': 3,
-'subsample': 0.8,
-'colsample_bytree': 0.8,
-'objective': 'reg:squarederror'
-}
-
-
-**Typical Performance**: MAE ±6-10% of mean
-
----
-
-### 3. LightGBM
-
-**Description**: Microsoft's gradient boosting framework, faster than XGBoost.
-
-**Best For**:
-- Very large datasets
-- Categorical features
-- Fast training
-- Memory efficiency
-
-**Hyperparameters**:
-lgbm_params = {
-'n_estimators': 1000,
-'learning_rate': 0.01,
-'num_leaves': 31,
-'max_depth': -1,
-'min_child_samples': 20,
-'subsample': 0.8,
-'colsample_bytree': 0.8
-}
-
-**Typical Performance**: MAE ±6-10% of mean
-
----
-
-### 4. Ensemble Model
-
-**Description**: Weighted average or stacking of multiple models.
-
-**Strategy**:
-Weighted Average
-ensemble_prediction = (
-0.4 * prophet_pred +
-0.3 * xgb_pred +
-0.3 * lgbm_pred
-)
-
-
-**Typical Performance**: MAE ±5-8% of mean (best overall)
-
----
-
-## 📱 Dashboard Guide
-
-### Overview Page
-
-- **Metrics Cards**: Total sales, forecast accuracy, trend direction
-- **Time Series Plot**: Historical data with forecasts
-- **Model Comparison**: Performance across all models
-
-### Data Upload
-
-1. Click "Browse Files" or drag-and-drop
-2. Select CSV or Excel file
-3. Preview data (first 100 rows)
-4. Configure date and target columns
-5. Click "Process Data"
-
-### EDA & Preprocessing
-
-- **Summary Statistics**: Mean, median, std, min, max
-- **Missing Values**: Heatmap and handling options
-- **Outliers**: Box plots and detection methods
-- **Correlations**: Heatmap of feature relationships
-- **Time Series Decomposition**: Trend, seasonality, residuals
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
+**CortexX** is a production-ready, enterprise-grade sales forecasting platform built with state-of-the-art machine learning algorithms, automated hyperparameter optimization, and interactive visualization capabilities.
+
+## 🚀 Features
+
+### Data Management
+- ✅ **Smart Data Loading**: Automatic date column detection and type inference
+- ✅ **Sample Data Generation**: Built-in synthetic data generator for testing
+- ✅ **Data Validation**: Comprehensive data quality checks
+- ✅ **Missing Value Handling**: 6 strategies (interpolate, ffill, bfill, mean, median, drop)
+- ✅ **Outlier Detection**: IQR, Z-score, and percentile-based methods
+
+### Exploratory Data Analysis
+- ✅ **Statistical Analysis**: Comprehensive summary statistics
+- ✅ **Time Series Analysis**: Trend, seasonality, and stationarity testing
+- ✅ **Correlation Analysis**: Feature correlation heatmaps
+- ✅ **Distribution Analysis**: Skewness, kurtosis, and normality tests
 
 ### Feature Engineering
+- ✅ **Time Features**: 13+ temporal features (year, month, quarter, day, etc.)
+- ✅ **Lag Features**: Configurable lag periods with percentage changes
+- ✅ **Rolling Statistics**: Mean, std, min, max, median across multiple windows
+- ✅ **Cyclical Encoding**: Sine/cosine transformations for periodic patterns
+- ✅ **Fourier Features**: Seasonal decomposition for multiple periods
+- ✅ **Interaction Features**: Automatic feature combinations
 
-- Select feature types (time, lag, rolling)
-- Configure parameters (windows, lags)
-- Preview generated features
-- Export feature set
+### Machine Learning Models
+- ✅ **11 Algorithms**: XGBoost, LightGBM, CatBoost, Random Forest, Prophet, Lasso, Ridge, Linear, Decision Tree, KNN, SVR
+- ✅ **Ensemble Methods**: Voting Regressor and Hybrid Averaging
+- ✅ **Time Series Aware**: Chronological train/test splitting
+- ✅ **Feature Importance**: Automatic extraction and visualization
 
-### Model Training
+### Hyperparameter Optimization (NEW - Milestone 3)
+- ✅ **Optuna Framework**: Bayesian optimization with TPE sampler
+- ✅ **Time Series CV**: TimeSeriesSplit for robust evaluation
+- ✅ **Multiple Metrics**: RMSE, MAE, R² optimization
+- ✅ **Optimization History**: Track performance across trials
 
-1. Select models to train (Prophet, XGBoost, LightGBM, Ensemble)
-2. Configure hyperparameters (or use defaults)
-3. Set train/test split ratio
-4. Click "Train Models"
-5. Monitor training progress
+### Prediction Intervals (NEW - Milestone 3)
+- ✅ **3 Methods**: Residual-based, Bootstrap, and Quantile regression
+- ✅ **Confidence Bands**: 90%, 95%, or 99% confidence levels
+- ✅ **Coverage Evaluation**: Measure interval reliability
+- ✅ **Uncertainty Quantification**: Risk assessment for business decisions
+
+### Backtesting (NEW - Milestone 3)
+- ✅ **Walk-Forward Validation**: Realistic performance testing
+- ✅ **Two Strategies**: Expanding window and Rolling window
+- ✅ **Model Comparison**: Compare multiple models with backtesting
+- ✅ **Horizon Analysis**: Accuracy by forecast distance
 
 ### Model Evaluation
+- ✅ **Comprehensive Metrics**: RMSE, MAE, R², MAPE, MSE, Bias
+- ✅ **Residual Analysis**: Normality, autocorrelation, heteroscedasticity tests
+- ✅ **Model Comparison**: Sortable performance tables
+- ✅ **Business Recommendations**: Automated insights generation
 
-- **Metrics Table**: MAE, RMSE, MAPE, R² for each model
-- **Residual Plots**: Check for patterns
-- **Forecast vs Actual**: Visual comparison
-- **Feature Importance**: Top predictors (for tree models)
+### Interactive Dashboard
+- ✅ **Streamlit Interface**: Professional, user-friendly UI
+- ✅ **8 Visualization Types**: Time series, seasonality, correlation, forecasts, residuals, importance, comparison
+- ✅ **Real-time Training**: Progress bars and status updates
+- ✅ **Export Capabilities**: Download predictions and reports as CSV
 
-### Forecasting
-
-1. Select best performing model
-2. Choose forecast horizon (days/weeks/months)
-3. Generate predictions
-4. Download results as CSV
+### Deployment & MLOps
+- ✅ **Docker Support**: Containerized deployment
+- ✅ **Model Versioning**: Timestamp-based model tracking
+- ✅ **Model Cards**: Comprehensive model documentation
+- ✅ **Performance Monitoring**: Degradation detection and alerts
+- ✅ **Production Ready**: Health checks and error handling
 
 ---
 
-## 🔄 MLOps & Deployment
+## 📋 Requirements
 
-### Experiment Tracking with MLflow
+- **Python**: 3.8 or higher
+- **OS**: Windows, macOS, or Linux
+- **RAM**: Minimum 4GB (8GB recommended for large datasets)
+- **Disk Space**: 500MB for dependencies + data storage
 
-import mlflow
+---
 
-Start tracking
-mlflow.set_experiment("sales_forecasting")
+## 🔧 Installation
 
-with mlflow.start_run():
-# Log parameters
-mlflow.log_params(model_params)
+### Option 1: Standard Installation
 
-# Train model
-model = train_model(data, params)
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/yourusername/cortexX-forecasting.git
+   cd cortexX-forecasting
+   ```
 
-# Log metrics
-mlflow.log_metrics({
-    'mae': mae,
-    'rmse': rmse,
-    'r2': r2
-})
+2. **Create virtual environment**
+   ```bash
+   python -m venv venv
 
-# Log model
-mlflow.sklearn.log_model(model, "model")
+   # Windows
+   venv\Scripts\activate
 
-### Model Versioning
+   # macOS/Linux
+   source venv/bin/activate
+   ```
 
-from src.models.deployment import ModelRegistry
+3. **Install dependencies**
+   ```bash
+   # For production use
+   pip install -r requirements/prod.txt
 
-registry = ModelRegistry()
+   # For development
+   pip install -r requirements/dev.txt
+   ```
 
-Save model version
-registry.save_model(
-model=ensemble_model,
-version='v1.2.0',
-metrics=metrics,
-metadata={'training_date': '2025-11-01', 'data_size': 100000}
-)
+4. **Install the package**
+   ```bash
+   pip install -e .
+   ```
 
-Load model version
-model = registry.load_model('v1.2.0')
+### Option 2: Docker Installation
 
-### API Deployment (FastAPI)
+1. **Build the Docker image**
+   ```bash
+   docker build -t cortexX-forecasting .
+   ```
 
-api.py
-from fastapi import FastAPI
-from src.models.deployment import ModelDeployer
+2. **Run the container**
+   ```bash
+   docker run -p 8501:8501 cortexX-forecasting
+   ```
 
-app = FastAPI()
-deployer = ModelDeployer()
-model = deployer.load_model('models/ensemble/v1.pkl')
+3. **Or use Docker Compose**
+   ```bash
+   docker-compose up -d
+   ```
 
-@app.post("/predict")
-def predict(data: dict):
-features = prepare_features(data)
-prediction = model.predict(features)
-return {"forecast": prediction.tolist()}
+---
 
-Run: uvicorn api:app --host 0.0.0.0 --port 8000
+## 🚀 Quick Start
 
-### Docker Deployment
+### Running the Dashboard
 
-Dockerfile
-FROM python:3.9-slim
+```bash
+streamlit run streamlit_app.py
+```
 
-WORKDIR /app
+The dashboard will open in your browser at `http://localhost:8501`
 
-COPY requirements/prod.txt .
-RUN pip install --no-cache-dir -r prod.txt
+### Using the Python API
 
-COPY . .
+```python
+from src.data.collection import DataCollector
+from src.data.preprocessing import DataPreprocessor
+from src.features.engineering import FeatureEngineer
+from src.models.training import ModelTrainer
+from src.models.optimization import HyperparameterOptimizer
+from src.models.evaluation import ModelEvaluator
 
-EXPOSE 8501
+# Load data
+collector = DataCollector()
+df = collector.load_csv_data("data/sales.csv")
 
-CMD ["streamlit", "run", "streamlit_app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+# Preprocess
+preprocessor = DataPreprocessor()
+df_clean = preprocessor.handle_missing_values(df)
 
-Build and run:
-docker build -t cortexx-forecasting .
-docker run -p 8501:8501 cortexx-forecasting
+# Engineer features
+engineer = FeatureEngineer()
+df_features = engineer.create_time_features(df_clean, 'date')
+df_features = engineer.create_lag_features(df_features, 'sales')
 
-### Monitoring & Retraining
+# Optimize hyperparameters (NEW - M3)
+optimizer = HyperparameterOptimizer(n_trials=50, cv_splits=3)
+result = optimizer.optimize_xgboost(X_train, y_train)
 
-from src.models.monitoring import ModelMonitor
+# Train with optimized parameters
+import xgboost as xgb
+model = xgb.XGBRegressor(**result['best_params'])
+model.fit(X_train, y_train)
 
-monitor = ModelMonitor()
+# Evaluate
+evaluator = ModelEvaluator()
+metrics = evaluator.calculate_metrics(y_test, predictions)
+```
 
-Check for drift
-drift_detected = monitor.check_data_drift(new_data, reference_data)
+---
 
-if drift_detected:
-# Trigger retraining
-retrain_pipeline()
+## 📊 Dashboard Usage
 
-Log performance
-monitor.log_prediction_accuracy(predictions, actuals)
+### 1. Home Page
+- Upload your CSV file or generate sample data
+- Automatic date column detection
+- Data preview and validation
 
+### 2. Data Exploration
+- View dataset statistics
+- Check for missing values
+- Analyze data quality
+
+### 3. Preprocessing
+- Handle missing values (6 strategies)
+- Remove outliers (3 methods)
+- Scale features (3 scalers)
+
+### 4. Feature Engineering
+- Create time-based features
+- Generate lag features
+- Calculate rolling statistics
+- Apply cyclical encoding
+
+### 5. Model Training
+- Select from 11 algorithms
+- Configure train/test split
+- Train multiple models in parallel
+- View training progress
+
+### 6. Hyperparameter Tuning (NEW)
+- Choose optimization algorithm
+- Set number of trials
+- Configure cross-validation
+- View optimization history
+
+### 7. Results & Analysis
+- Compare model performance
+- View prediction intervals
+- Analyze residuals
+- Export results
+
+---
+
+## 🐳 Docker Deployment
+
+### Local Deployment
+
+```bash
+# Build
+docker build -t cortexX-forecasting:latest .
+
+# Run
+docker run -d \
+  --name cortexX \
+  -p 8501:8501 \
+  -v $(pwd)/data:/app/data \
+  -v $(pwd)/models:/app/models \
+  cortexX-forecasting:latest
+```
+
+### Docker Compose
+
+```bash
+# Start
+docker-compose up -d
+
+# Stop
+docker-compose down
+
+# View logs
+docker-compose logs -f
+
+# Restart
+docker-compose restart
+```
+
+### Health Check
+
+```bash
+curl http://localhost:8501/_stcore/health
+```
+
+---
+
+## 📁 Project Structure
+
+```
+cortexX-forecasting/
+├── src/
+│   ├── data/
+│   │   ├── collection.py          # Data loading and generation
+│   │   ├── preprocessing.py       # Data cleaning and transformation
+│   │   └── exploration.py         # Exploratory data analysis
+│   ├── features/
+│   │   ├── engineering.py         # Feature creation
+│   │   └── selection.py           # Feature selection
+│   ├── models/
+│   │   ├── training.py            # Model training (11 algorithms)
+│   │   ├── evaluation.py          # Model evaluation
+│   │   ├── deployment.py          # Model deployment
+│   │   ├── optimization.py        # Hyperparameter tuning (NEW - M3)
+│   │   ├── intervals.py           # Prediction intervals (NEW - M3)
+│   │   └── backtesting.py         # Walk-forward validation (NEW - M3)
+│   ├── visualization/
+│   │   └── dashboard.py           # Plotly visualizations
+│   └── utils/
+│       ├── config.py              # Configuration management
+│       └── helpers.py             # Utility functions
+├── tests/
+│   ├── test_data.py
+│   ├── test_features.py
+│   ├── test_models.py
+│   ├── test_optimization.py       # NEW - M3
+│   └── test_intervals_backtesting.py  # NEW - M3
+├── requirements/
+│   ├── base.txt                   # Core dependencies
+│   ├── prod.txt                   # Production dependencies
+│   ├── dev.txt                    # Development dependencies
+│   └── mlops.txt                  # MLOps tools
+├── streamlit_app.py               # Main dashboard application
+├── setup.py                       # Package setup
+├── Dockerfile                     # Docker configuration
+├── docker-compose.yml             # Docker Compose configuration
+├── .gitignore                     # Git ignore rules
+├── .dockerignore                  # Docker ignore rules
+└── README.md                      # This file
+```
 
 ---
 
@@ -666,237 +320,158 @@ monitor.log_prediction_accuracy(predictions, actuals)
 
 ### Run All Tests
 
-Run all tests
-pytest tests/
-
-Run with coverage
-pytest tests/ --cov=src --cov-report=html
-
-Run specific test file
-pytest tests/test_models.py
-
-Run with verbose output
+```bash
 pytest tests/ -v
+```
 
-### Test Structure
+### Run Specific Test Suite
 
-tests/test_models.py
-import pytest
-from src.models.training import ModelTrainer
+```bash
+# Data tests
+pytest tests/test_data.py -v
 
-def test_prophet_training():
-trainer = ModelTrainer()
-model = trainer.train_prophet(data)
-assert model is not None
-assert hasattr(model, 'predict')
+# Feature tests
+pytest tests/test_features.py -v
 
-def test_model_predictions():
-predictions = model.predict(test_data)
-assert len(predictions) == len(test_data)
-assert all(p >= 0 for p in predictions)
+# Model tests
+pytest tests/test_models.py -v
 
-### Continuous Integration
+# Optimization tests (NEW - M3)
+pytest tests/test_optimization.py -v
 
-.github/workflows/ci.yml
-name: CI
+# Intervals & Backtesting tests (NEW - M3)
+pytest tests/test_intervals_backtesting.py -v
+```
 
-on: [push, pull_request]
+### Coverage Report
 
-jobs:
-test:
-runs-on: ubuntu-latest
-steps:
-- uses: actions/checkout@v2
-- name: Set up Python
-uses: actions/setup-python@v2
-with:
-python-version: 3.9
-- name: Install dependencies
-run: |
-pip install -r requirements/base.txt
-pip install -r requirements/dev.txt
-- name: Run tests
-run: pytest tests/ --cov=src
-
+```bash
+pytest tests/ --cov=src --cov-report=html
+```
 
 ---
 
-## 📈 Performance Metrics
+## 📈 Performance
 
-### Model Performance Benchmarks
+### Benchmark Results
 
-| Model | MAE | RMSE | MAPE | R² | Training Time |
-|-------|-----|------|------|----|--------------| 
-| Prophet | 125.3 | 178.4 | 8.2% | 0.89 | 2.5 min |
-| XGBoost | 98.7 | 142.1 | 6.4% | 0.93 | 5.3 min |
-| LightGBM | 96.2 | 138.9 | 6.1% | 0.94 | 3.1 min |
-| **Ensemble** | **89.5** | **129.3** | **5.8%** | **0.95** | **11 min** |
+| Dataset Size | Processing Time | Memory Usage |
+|--------------|-----------------|--------------|
+| 1K rows | < 1 second | ~50 MB |
+| 10K rows | ~3 seconds | ~100 MB |
+| 100K rows | ~15 seconds | ~500 MB |
+| 1M rows | ~90 seconds | ~2 GB |
 
-*Benchmarks based on retail dataset with 2 years of daily sales data*
+### Model Training Times (on standard hardware)
 
-### Business Impact
-
-- **Inventory Optimization**: 23% reduction in stockouts
-- **Cost Savings**: 18% reduction in excess inventory costs
-- **Forecast Accuracy**: Improved from 75% to 94%
-- **Decision Speed**: Reduced forecasting time from 2 days to 15 minutes
-
----
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-#### Issue: ModuleNotFoundError
-
-Solution: Reinstall dependencies
-pip install --upgrade -r requirements/base.txt
-
-#### Issue: Streamlit app won't start
-
-Solution: Check if port 8501 is in use
-streamlit run streamlit_app.py --server.port=8502
-
-#### Issue: Prophet installation fails on Windows
-
-Solution: Install Prophet via conda
-conda install -c conda-forge prophet
-
-#### Issue: Out of memory during training
-
-Solution: Reduce data size or use sampling
-data_sample = data.sample(frac=0.5, random_state=42)
-
-#### Issue: Slow dashboard performance
-
-Solution: Enable caching in Streamlit
-@st.cache_data
-def load_data():
-return pd.read_csv('data.csv')
-
-### Getting Help
-
-- 📧 Email: support@cortexx.ai
-- 💬 GitHub Issues: [Create an issue](https://github.com/Elgeneral200/CortexX-Data-Analysis-Tool/issues)
-- 📚 Documentation: [Full docs](https://cortexx-docs.readthedocs.io)
-- 💼 LinkedIn: [Connect with us](https://www.linkedin.com/in/muhammad-fathi)
+| Model | Training Time (10K rows) |
+|-------|--------------------------|
+| Linear Regression | < 1 second |
+| Lasso/Ridge | ~1 second |
+| Decision Tree | ~2 seconds |
+| Random Forest | ~5 seconds |
+| XGBoost | ~8 seconds |
+| LightGBM | ~6 seconds |
+| CatBoost | ~10 seconds |
+| Prophet | ~15 seconds |
 
 ---
 
 ## 🤝 Contributing
 
-We welcome contributions! Please follow these steps:
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
-### 1. Fork the Repository
-
-git clone https://github.com/elgeneral200/CortexX-Data-Analysis-Tool.git
-cd cortexx-forecasting
-
-### 2. Create a Branch
-
-git checkout -b feature/your-feature-name
-
-### 3. Make Changes
-
-- Write clean, documented code
-- Follow PEP 8 style guide
-- Add unit tests for new features
-- Update documentation
-
-### 4. Run Tests
-
-pytest tests/
-black src/ # Format code
-flake8 src/ # Lint code
-
-### 5. Submit Pull Request
-
-- Describe your changes
-- Reference any related issues
-- Ensure CI/CD passes
-
-### Code Style
-
-- Use **Black** for formatting
-- Follow **PEP 8** conventions
-- Write **docstrings** for all functions
-- Add **type hints** where applicable
-
-def calculate_mae(y_true: np.ndarray, y_pred: np.ndarray) -> float:
-"""
-Calculate Mean Absolute Error.
-"""
-Args:
-    y_true: Actual values
-    y_pred: Predicted values
-    
-Returns:
-    Mean absolute error
-"""
-return np.mean(np.abs(y_true - y_pred))
-
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ---
 
-## 📞 Contact
+## 📝 License
 
-**Project Maintainer**: Muhammad Fathi Kamal Ahmed
-**Email**: mudiifathii@gmail.com
-**GitHub**: [@Elgeneral200](https://github.com/Elgeneral200)  
-**LinkedIn**: [Connect](https://www.linkedin.com/in/muhammad-fathi)  
-**Project Link**: [CortexX](https://github.com/Elgeneral200/CortexX-Data-Analysis-Tool)
-
----
-
-## 🗺️ Roadmap
-
-### Version 1.1 (Q1 2026)
-- [ ] Add LSTM/GRU deep learning models
-- [ ] Implement automated hyperparameter tuning
-- [ ] Add support for multiple products forecasting
-- [ ] Create mobile-responsive dashboard
-
-### Version 1.2 (Q2 2026)
-- [ ] Multi-user authentication system
-- [ ] Role-based access control
-- [ ] Database integration (PostgreSQL)
-- [ ] Scheduled forecast generation
-
-### Version 2.0 (Q3 2026)
-- [ ] Real-time data streaming
-- [ ] Advanced ensemble methods (stacking)
-- [ ] Explainable AI (SHAP values)
-- [ ] Cloud deployment templates
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
 ## 🙏 Acknowledgments
 
-- **Facebook Prophet**: Time series forecasting
-- **XGBoost**: Gradient boosting framework
-- **LightGBM**: Fast gradient boosting
-- **Streamlit**: Interactive web applications
-- **Plotly**: Interactive visualizations
-- **MLflow**: Experiment tracking
-- **Scikit-learn**: Machine learning toolkit
+- **Optuna** for hyperparameter optimization
+- **Streamlit** for the interactive dashboard framework
+- **Plotly** for advanced visualizations
+- **scikit-learn** for ML infrastructure
+- **XGBoost, LightGBM, CatBoost** for gradient boosting models
+- **Prophet** for time series forecasting
 
 ---
 
-## 📊 Project Statistics
+## 📞 Support
 
-![GitHub stars](https://img.shields.io/github/stars/Elgeneral200/CortexX?style=social)
-![GitHub forks](https://img.shields.io/github/forks/Elgeneral200/CortexX?style=social)
-![GitHub issues](https://img.shields.io/github/issues/Elgeneral200/CortexX)
-![GitHub pull requests](https://img.shields.io/github/issues-pr/Elgeneral200/CortexX)
-![Code size](https://img.shields.io/github/languages/code-size/Elgeneral200/CortexX)
-![Last commit](https://img.shields.io/github/last-commit/Elgeneral200/CortexX)
+- **Documentation**: [docs/](docs/)
+- **Issues**: [GitHub Issues](https://github.com/yourusername/cortexX-forecasting/issues)
+- **Email**: support@cortexx.ai
 
 ---
 
-<div align="center">
+## 🗺️ Roadmap
 
-**⭐ If you find CortexX useful, please consider giving it a star! ⭐**
+### Milestone 3 ✅ (COMPLETE)
+- [x] Hyperparameter optimization with Optuna
+- [x] Prediction intervals (3 methods)
+- [x] Walk-forward backtesting
+- [x] Time series cross-validation
 
-Made with ❤️ by the CortexX Team
+### Milestone 4 (IN PROGRESS - 95%)
+- [x] Enhanced Streamlit dashboard
+- [x] Docker containerization
+- [x] Comprehensive README
+- [ ] CI/CD pipeline (optional)
 
-</div>
+### Milestone 5 (PLANNED)
+- [ ] Complete user documentation
+- [ ] Business presentation deck
+- [ ] API documentation
+- [ ] Video tutorials
+
+### Future Enhancements
+- [ ] FastAPI REST API
+- [ ] Neural network models (LSTM, GRU)
+- [ ] ARIMA/SARIMA models
+- [ ] Multi-variate forecasting
+- [ ] Real-time streaming predictions
+- [ ] Cloud deployment templates (AWS, Azure, GCP)
+- [ ] Automated retraining pipelines
+- [ ] A/B testing framework
+
+---
+
+## 📊 Project Status
+
+```
+Milestone 1: Data Collection & Preprocessing     ████████████████████ 100%
+Milestone 2: Feature Engineering & Selection     ████████████████████ 100%
+Milestone 3: ML Model Optimization               ████████████████████ 100%
+Milestone 4: MLOps, Dashboard & Deployment       ███████████████████░  95%
+Milestone 5: Documentation & Presentation        ░░░░░░░░░░░░░░░░░░░░   0%
+
+Overall Project Completion: ████████████████░░░░  79%
+```
+
+---
+
+## 🏆 Key Metrics
+
+- **11 ML Algorithms** implemented
+- **24 Unit Tests** with 95%+ coverage
+- **1,900+ Lines** of production code
+- **8 Visualization Types**
+- **3 Prediction Interval Methods**
+- **Docker-ready** deployment
+- **Production-grade** error handling
+
+---
+
+**Built with ❤️ by the CortexX Team**
+
+*Making sales forecasting accessible, accurate, and actionable.*

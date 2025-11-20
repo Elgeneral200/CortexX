@@ -3,14 +3,22 @@ pandas
 numpy
 scikit-learn
 joblib
-
+scipy
 
 # Forecasting Libraries
 statsmodels
 prophet
 xgboost
 lightgbm
+catboost
 
+# Hyperparameter Optimization
+optuna
 
 # Visualization
 plotly
+matplotlib  
+seaborn  
+
+# Utilities
+python-dotenv
