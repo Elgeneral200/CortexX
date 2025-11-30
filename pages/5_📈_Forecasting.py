@@ -1,5 +1,10 @@
 """
 Advanced Forecasting Page for CortexX Enterprise Platform
+
+PHASE 2 INTEGRATED:
+- Uses StateManager for all state operations
+- Cached singletons (get_visualizer, get_model_trainer)
+- All functionality preserved
 """
 
 import streamlit as st
@@ -16,12 +21,16 @@ src_path = os.path.join(os.path.dirname(__file__), '..', 'src')
 if src_path not in sys.path:
     sys.path.append(src_path)
 
+# ✅ PHASE 2 IMPORTS
 try:
-    from src.models.training import ModelTrainer
+    from src.utils.state_manager import StateManager, is_data_loaded, get_current_data
+    from src.models.training import get_model_trainer
     from src.models.intervals import PredictionIntervals
-    from src.visualization.dashboard import VisualizationEngine, display_plotly_chart
+    from src.visualization.dashboard import get_visualizer, display_plotly_chart
+    from src.utils.config import get_config
     MODULES_AVAILABLE = True
-except ImportError:
+except ImportError as e:
+    st.error(f"Module import error: {e}")
     MODULES_AVAILABLE = False
 
 st.set_page_config(
@@ -30,12 +39,18 @@ st.set_page_config(
     layout="wide"
 )
 
+
 def main():
     """Main forecasting function."""
     
     st.markdown('<div class="section-header">📈 Advanced Forecasting</div>', unsafe_allow_html=True)
     
-    if not st.session_state.get('trained_models', {}):
+    # ✅ UPDATED: Use StateManager
+    StateManager.initialize()
+    
+    trained_models = StateManager.get('trained_models', {})
+    
+    if not trained_models:
         st.warning("⚠️ Please train models first from the Model Training page")
         st.info("You need to train at least one model before generating forecasts.")
         return
@@ -56,10 +71,9 @@ def main():
     # Model Selection
     st.subheader("🎯 Model Selection")
     
-    trained_models = list(st.session_state.trained_models.keys())
     selected_model = st.selectbox(
         "Select Model for Forecasting",
-        trained_models,
+        list(trained_models.keys()),
         help="Choose the trained model to use for forecasting"
     )
     
@@ -110,19 +124,25 @@ def main():
     if st.button("🚀 Generate Forecast", type="primary", use_container_width=True):
         generate_forecast(selected_model, forecast_horizon, confidence_level, interval_method, include_history)
 
+
 def generate_forecast(model_name: str, horizon: int, confidence: float, method: str, include_history: bool):
     """Generate and display forecasts."""
     
     with st.spinner(f"🔄 Generating {horizon}-period forecast with {model_name}..."):
         try:
-            # Get trained model and results
-            model = st.session_state.trained_models[model_name]
-            results = st.session_state.model_results[model_name]
+            # ✅ UPDATED: Use StateManager
+            trained_models = StateManager.get('trained_models', {})
+            model_results = StateManager.get('model_results', {})
             
-            # Prepare data for forecasting
-            df = st.session_state.current_data
-            date_col = st.session_state.get('date_column')
-            value_col = st.session_state.get('value_column')
+            model = trained_models[model_name]
+            results = model_results[model_name]
+            
+            # ✅ UPDATED: Use helper function
+            df = get_current_data()
+            
+            # ✅ UPDATED: Use StateManager
+            date_col = StateManager.get('date_column')
+            value_col = StateManager.get('value_column')
             
             if not date_col or not value_col:
                 st.error("Date column or value column not set")
@@ -171,6 +191,7 @@ def generate_forecast(model_name: str, horizon: int, confidence: float, method: 
         except Exception as e:
             st.error(f"❌ Error generating forecast: {str(e)}")
 
+
 def generate_synthetic_forecast(last_value: float, horizon: int) -> np.ndarray:
     """Generate synthetic forecast values for demonstration."""
     # Simple trend + seasonality + noise
@@ -181,11 +202,13 @@ def generate_synthetic_forecast(last_value: float, horizon: int) -> np.ndarray:
     forecast = last_value + trend + seasonality + noise
     return np.maximum(forecast, 0)  # Ensure non-negative values
 
+
 def display_forecast_results(forecast_results: dict, historical_df: pd.DataFrame, 
                            date_col: str, value_col: str, include_history: bool):
     """Display forecast results with visualizations."""
     
-    visualizer = VisualizationEngine()
+    # ✅ UPDATED: Use cached singleton
+    visualizer = get_visualizer()
     
     st.success(f"✅ Forecast generated successfully for {forecast_results['horizon']} periods!")
     
@@ -297,6 +320,7 @@ def display_forecast_results(forecast_results: dict, historical_df: pd.DataFrame
         if st.button("📄 Generate Forecast Report", use_container_width=True):
             generate_forecast_report(forecast_results, forecast_df)
 
+
 def generate_forecast_report(forecast_results: dict, forecast_df: pd.DataFrame):
     """Generate a comprehensive forecast report."""
     
@@ -336,6 +360,7 @@ def generate_forecast_report(forecast_results: dict, forecast_df: pd.DataFrame):
             
         except Exception as e:
             st.error(f"Error generating report: {str(e)}")
+
 
 if __name__ == "__main__":
     main()

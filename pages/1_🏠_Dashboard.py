@@ -1,5 +1,11 @@
 """
 Enterprise Dashboard Page for CortexX Forecasting Platform
+
+PHASE 2 INTEGRATED + TASK 6:
+- Uses StateManager for all state operations
+- Cached singletons (get_data_collector, get_visualizer)
+- ✅ Data validation with quality metrics
+- Optimized performance with caching
 """
 
 import streamlit as st
@@ -16,12 +22,20 @@ src_path = os.path.join(os.path.dirname(__file__), '..', 'src')
 if src_path not in sys.path:
     sys.path.append(src_path)
 
+# ✅ PHASE 2 IMPORTS
 try:
-    from src.data.collection import DataCollector
-    from src.visualization.dashboard import VisualizationEngine, display_plotly_chart
+    from src.utils.state_manager import StateManager, is_data_loaded, get_current_data
+    from src.data.collection import get_data_collector, generate_sample_data_cached
+    from src.visualization.dashboard import get_visualizer, display_plotly_chart
+    from src.utils.config import get_config
+    # ✅ TASK 6: Validation imports
+    from src.utils.validators import DataValidator, validate_upload_file
     MODULES_AVAILABLE = True
-except ImportError:
+    VALIDATORS_AVAILABLE = True
+except ImportError as e:
+    st.error(f"Module import error: {e}")
     MODULES_AVAILABLE = False
+    VALIDATORS_AVAILABLE = False
 
 st.set_page_config(
     page_title="Dashboard - CortexX",
@@ -32,11 +46,7 @@ st.set_page_config(
 def main():
     """Main dashboard function."""
     
-    # Initialize session state
-    if 'data_loaded' not in st.session_state:
-        st.session_state.data_loaded = False
-    if 'current_data' not in st.session_state:
-        st.session_state.current_data = None
+    StateManager.initialize()
     
     # Header
     st.markdown("""
@@ -50,6 +60,13 @@ def main():
         text-align: center;
         margin-bottom: 2rem;
     }
+    .validation-card {
+        background: linear-gradient(135deg, #1a1d29 0%, #252a3a 100%);
+        padding: 1rem;
+        border-radius: 8px;
+        border: 1px solid #2d3746;
+        margin: 0.5rem 0;
+    }
     </style>
     """, unsafe_allow_html=True)
     
@@ -61,29 +78,92 @@ def main():
     with col1:
         st.subheader("📊 Data Management")
         
-        # File upload
+        # File upload with validation
         uploaded_file = st.file_uploader(
             "Upload your sales data (CSV)",
             type=['csv'],
             help="Upload a CSV file with your sales data for analysis"
         )
         
+        # ✅ TASK 6: Enhanced file upload with validation
         if uploaded_file is not None:
             try:
-                if MODULES_AVAILABLE:
-                    collector = DataCollector()
-                    df = collector.load_csv_data(uploaded_file)
-                else:
-                    df = pd.read_csv(uploaded_file)
+                if MODULES_AVAILABLE and VALIDATORS_AVAILABLE:
+                    # Validate file first
+                    is_valid, message, df = validate_upload_file(uploaded_file)
+                    
+                    if not is_valid:
+                        st.error(f"❌ {message}")
+                    else:
+                        if df is not None:
+                            # Additional validation
+                            validator = DataValidator()
+                            
+                            # Show validation summary in expander
+                            with st.expander("📊 Data Validation Report", expanded=False):
+                                validation_result = validator.validate_dataframe(df)
+                                
+                                # Quality metrics
+                                col_v1, col_v2, col_v3 = st.columns(3)
+                                with col_v1:
+                                    st.metric("Rows", f"{validation_result['metrics']['total_rows']:,}")
+                                with col_v2:
+                                    quality_score = validation_result['metrics']['quality_score']
+                                    score_color = "🟢" if quality_score >= 80 else "🟡" if quality_score >= 60 else "🔴"
+                                    st.metric(f"{score_color} Quality Score", f"{quality_score:.1f}/100")
+                                with col_v3:
+                                    missing_pct = validation_result['metrics']['missing_analysis']['total_missing_pct']
+                                    st.metric("Completeness", f"{100-missing_pct:.1f}%")
+                                
+                                # Show warnings if any
+                                if validation_result.get('warnings'):
+                                    st.warning("⚠️ **Data Quality Warnings:**")
+                                    for warning in validation_result['warnings']:
+                                        st.write(f"• {warning}")
+                                
+                                # Show quality breakdown
+                                st.markdown("**📋 Data Quality Details:**")
+                                col_q1, col_q2 = st.columns(2)
+                                with col_q1:
+                                    st.write(f"• Numeric Columns: {validation_result['metrics']['numeric_columns']}")
+                                    st.write(f"• Missing Values: {validation_result['metrics']['missing_analysis']['total_missing']}")
+                                with col_q2:
+                                    st.write(f"• Duplicate Rows: {validation_result['metrics']['duplicate_analysis']['duplicate_count']}")
+                                    st.write(f"• Columns w/ Missing: {validation_result['metrics']['missing_analysis']['columns_with_missing_count']}")
+                            
+                            # Store validated data
+                            StateManager.update({
+                                'current_data': df,
+                                'data_loaded': True,
+                                'validation_result': validation_result
+                            })
+                            
+                            # Auto-detect columns
+                            auto_detect_columns(df)
+                            
+                            st.success(f"✅ {message if message else f'Data loaded successfully! {len(df):,} records'}")
                 
-                if not df.empty:
-                    st.session_state.current_data = df
-                    st.session_state.data_loaded = True
+                elif MODULES_AVAILABLE:
+                    # No validators, use collector
+                    collector = get_data_collector()
+                    df = collector.load_csv_data(uploaded_file)
                     
-                    # Auto-detect columns
+                    StateManager.update({
+                        'current_data': df,
+                        'data_loaded': True
+                    })
                     auto_detect_columns(df)
+                    st.success(f"✅ Data loaded! {len(df):,} records, {len(df.columns)} columns")
                     
-                    st.success(f"✅ Data loaded successfully! {len(df):,} records, {len(df.columns)} columns")
+                else:
+                    # Fallback
+                    df = pd.read_csv(uploaded_file)
+                    StateManager.update({
+                        'current_data': df,
+                        'data_loaded': True
+                    })
+                    auto_detect_columns(df)
+                    st.success(f"✅ Data loaded! {len(df):,} records")
                     
             except Exception as e:
                 st.error(f"❌ Error loading file: {str(e)}")
@@ -99,27 +179,48 @@ def main():
         
         st.markdown("---")
         st.markdown("**System Status**")
-        st.metric("Data Loaded", "✅" if st.session_state.data_loaded else "❌")
         
-        if st.session_state.data_loaded:
-            df = st.session_state.current_data
+        st.metric("Data Loaded", "✅" if is_data_loaded() else "❌")
+        
+        if is_data_loaded():
+            df = get_current_data()
             st.metric("Records", f"{len(df):,}")
             st.metric("Features", len(df.columns))
+            
+            # ✅ TASK 6: Show quality score if available
+            validation_result = StateManager.get('validation_result')
+            if validation_result:
+                quality_score = validation_result['metrics']['quality_score']
+                quality_color = "🟢" if quality_score >= 80 else "🟡" if quality_score >= 60 else "🔴"
+                st.metric(f"{quality_color} Quality", f"{quality_score:.0f}/100")
     
     # Display data if loaded
-    if st.session_state.data_loaded:
+    if is_data_loaded():
         display_dashboard_analytics()
 
+
 def auto_detect_columns(df: pd.DataFrame):
-    """Auto-detect date and value columns."""
+    """Auto-detect date and value columns with validation."""
     # Date column detection
     date_patterns = ['date', 'time', 'timestamp', 'datetime']
     for col in df.columns:
         if any(pattern in col.lower() for pattern in date_patterns):
             try:
                 df[col] = pd.to_datetime(df[col])
-                st.session_state.date_column = col
+                StateManager.set('date_column', col)
                 st.info(f"📅 Auto-detected date column: {col}")
+                
+                # ✅ TASK 6: Validate time series if we have both columns
+                value_col = StateManager.get('value_column')
+                if value_col and VALIDATORS_AVAILABLE:
+                    validator = DataValidator()
+                    ts_validation = validator.validate_time_series(df, col, value_col)
+                    
+                    if ts_validation.get('warnings'):
+                        with st.expander("⚠️ Time Series Warnings", expanded=False):
+                            for warning in ts_validation['warnings']:
+                                st.write(f"• {warning}")
+                
                 break
             except:
                 continue
@@ -127,16 +228,16 @@ def auto_detect_columns(df: pd.DataFrame):
     # Value column detection
     numeric_cols = df.select_dtypes(include=[np.number]).columns
     if len(numeric_cols) > 0:
-        st.session_state.value_column = numeric_cols[0]
+        StateManager.set('value_column', numeric_cols[0])
         st.info(f"💰 Auto-detected value column: {numeric_cols[0]}")
+
 
 def generate_sample_data():
     """Generate sample data for demonstration."""
     with st.spinner("🔄 Generating enterprise sample data..."):
         try:
             if MODULES_AVAILABLE:
-                collector = DataCollector()
-                df = collector.generate_sample_data(periods=365*2, products=5)
+                df = generate_sample_data_cached(periods=365*2, products=5)
             else:
                 # Fallback sample data
                 dates = pd.date_range(start='2022-01-01', periods=730, freq='D')
@@ -158,26 +259,43 @@ def generate_sample_data():
                         })
                 df = pd.DataFrame(data)
             
-            st.session_state.current_data = df
-            st.session_state.data_loaded = True
-            st.session_state.date_column = 'date'
-            st.session_state.value_column = 'sales'
-            st.success("✅ Enterprise sample data generated!")
+            # ✅ TASK 6: Validate generated data
+            if VALIDATORS_AVAILABLE:
+                validator = DataValidator()
+                validation_result = validator.validate_dataframe(df)
+                
+                StateManager.update({
+                    'current_data': df,
+                    'data_loaded': True,
+                    'date_column': 'date',
+                    'value_column': 'sales',
+                    'validation_result': validation_result
+                })
+            else:
+                StateManager.update({
+                    'current_data': df,
+                    'data_loaded': True,
+                    'date_column': 'date',
+                    'value_column': 'sales'
+                })
+            
+            st.success("✅ Enterprise sample data generated with validation!")
             st.rerun()
             
         except Exception as e:
             st.error(f"❌ Error generating sample data: {str(e)}")
 
+
 def reset_session():
     """Reset the session state."""
-    for key in list(st.session_state.keys()):
-        del st.session_state[key]
+    StateManager.clear_all()
     st.rerun()
+
 
 def display_dashboard_analytics():
     """Display dashboard analytics for loaded data."""
-    df = st.session_state.current_data
-    visualizer = VisualizationEngine()
+    df = get_current_data()
+    visualizer = get_visualizer()
     
     # KPI Cards
     st.markdown("### 📈 Business Overview")
@@ -189,15 +307,17 @@ def display_dashboard_analytics():
         st.metric("Total Records", f"{total_records:,}")
     
     with col2:
-        if st.session_state.value_column:
-            total_value = df[st.session_state.value_column].sum()
+        value_col = StateManager.get('value_column')
+        if value_col:
+            total_value = df[value_col].sum()
             st.metric("Total Value", f"${total_value:,.0f}")
         else:
             st.metric("Total Value", "-")
     
     with col3:
-        if st.session_state.value_column:
-            avg_value = df[st.session_state.value_column].mean()
+        value_col = StateManager.get('value_column')
+        if value_col:
+            avg_value = df[value_col].mean()
             st.metric("Average Value", f"${avg_value:,.0f}")
         else:
             st.metric("Average Value", "-")
@@ -213,14 +333,17 @@ def display_dashboard_analytics():
     # Visualizations
     st.markdown("### 📊 Data Visualizations")
     
-    if st.session_state.date_column and st.session_state.value_column:
+    date_col = StateManager.get('date_column')
+    value_col = StateManager.get('value_column')
+    
+    if date_col and value_col:
         col1, col2 = st.columns(2)
         
         with col1:
             # Time series trend
             try:
                 fig = visualizer.create_sales_trend_plot(
-                    df, st.session_state.date_column, st.session_state.value_column,
+                    df, date_col, value_col,
                     "Sales Trend Over Time"
                 )
                 display_plotly_chart(fig)
@@ -231,7 +354,7 @@ def display_dashboard_analytics():
             # Seasonality analysis
             try:
                 fig = visualizer.create_seasonality_plot(
-                    df, st.session_state.date_column, st.session_state.value_column
+                    df, date_col, value_col
                 )
                 display_plotly_chart(fig)
             except Exception as e:
@@ -260,6 +383,7 @@ def display_dashboard_analytics():
             st.dataframe(df.describe(), use_container_width=True)
         else:
             st.info("No numeric columns available for statistics")
+
 
 if __name__ == "__main__":
     main()

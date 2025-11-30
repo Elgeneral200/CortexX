@@ -1,6 +1,11 @@
 """
 Data collection module for CortexX sales forecasting platform.
-Handles data acquisition from multiple sources including CSV, databases, and APIs.
+
+ENHANCED: 
+- Caching strategy
+- Config integration
+- Optimized date detection
+✅ TASK 6: Data validation integration
 """
 
 import pandas as pd
@@ -9,43 +14,94 @@ from typing import Union, Optional, Dict, Any
 import logging
 from io import StringIO
 import re
+import streamlit as st
+import hashlib
 
 logger = logging.getLogger(__name__)
+
 
 class DataCollector:
     """
     A class to handle data collection from various sources for sales forecasting.
-    """
     
-    def __init__(self, config: Optional[dict] = None):
+    ENHANCED: Integrated with config, optimized for caching, with validation.
+    """
+
+    def __init__(self, config: Optional[Any] = None):
         """
         Initialize DataCollector with configuration.
         
         Args:
-            config (dict, optional): Configuration dictionary for data sources
+            config: Configuration object (uses get_config() if None)
         """
-        self.config = config or {}
+        if config is None:
+            from src.utils.config import get_config
+            config = get_config()
+        
+        self.config = config
         self.logger = logging.getLogger(__name__)
-    
+
     def load_csv_data(self, file_path: Union[str, object], **kwargs) -> pd.DataFrame:
         """
         Load sales data from CSV file or file-like object with automatic date detection.
         
+        ✅ TASK 6: Enhanced with validation checks
+        
         Args:
             file_path (Union[str, object]): Path to CSV file or file-like object
             **kwargs: Additional arguments for pandas read_csv
-            
+        
         Returns:
-            pd.DataFrame: Loaded sales data with auto-detected date columns
+            pd.DataFrame: Loaded and validated sales data
         """
         try:
             self.logger.info(f"Loading data from {file_path}")
             
+            # ✅ TASK 6: Try to import validators
+            try:
+                from src.utils.validators import validate_upload_file, DataValidator
+                validators_available = True
+            except ImportError:
+                validators_available = False
+                self.logger.warning("Validators not available, loading without validation")
+            
             if isinstance(file_path, str):
-                df = pd.read_csv(file_path, **kwargs)
+                # File path - can be cached directly
+                df = load_csv_cached(file_path, **kwargs)
+                
+                # ✅ TASK 6: Validate if validators available
+                if validators_available:
+                    validator = DataValidator()
+                    validation_result = validator.validate_dataframe(df)
+                    
+                    if not validation_result['is_valid']:
+                        error_msg = "; ".join(validation_result['errors'])
+                        self.logger.error(f"Data validation failed: {error_msg}")
+                        raise ValueError(f"Data validation failed: {error_msg}")
+                    
+                    # Log warnings
+                    if validation_result.get('warnings'):
+                        for warning in validation_result['warnings']:
+                            self.logger.warning(f"Data quality warning: {warning}")
+                
             else:
-                # Handle file-like objects (Streamlit uploads)
-                df = pd.read_csv(file_path, **kwargs)
+                # File-like object (Streamlit upload)
+                # ✅ TASK 6: Use validation function if available
+                if validators_available:
+                    is_valid, message, df = validate_upload_file(file_path)
+                    
+                    if not is_valid:
+                        self.logger.error(f"File validation failed: {message}")
+                        raise ValueError(message)
+                    
+                    if df is None:
+                        raise ValueError("Failed to load data from uploaded file")
+                    
+                    self.logger.info(f"Loaded data from uploaded file: {message}")
+                else:
+                    # Fallback without validation
+                    file_hash = hash_file_upload(file_path)
+                    df = load_csv_from_upload_cached(file_path, file_hash, **kwargs)
             
             # Auto-detect and convert date columns
             df = self._auto_detect_dates(df)
@@ -59,14 +115,14 @@ class DataCollector:
         except Exception as e:
             self.logger.error(f"Error loading CSV data: {str(e)}")
             raise ValueError(f"Failed to load data: {str(e)}")
-    
+
     def _auto_detect_dates(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Automatically detect and convert date columns in the dataframe.
         
         Args:
             df (pd.DataFrame): Input dataframe
-            
+        
         Returns:
             pd.DataFrame: Dataframe with date columns converted
         """
@@ -106,28 +162,32 @@ class DataCollector:
             self.logger.info(f"Found date columns: {date_columns_found}")
         else:
             self.logger.warning("No date columns detected automatically")
-            
+        
         return df_processed
-    
+
     def _try_convert_to_datetime(self, series: pd.Series) -> tuple:
         """
         Try to convert a series to datetime using multiple methods.
         
+        ✅ FIXED: Removed deprecated infer_datetime_format, suppressed warnings
+        
         Args:
             series (pd.Series): Series to convert
-            
+        
         Returns:
             tuple: (converted_series, success_flag)
         """
-        original_dtype = series.dtype
+        import warnings
         
         # If already datetime, return as is
         if pd.api.types.is_datetime64_any_dtype(series):
             return series, True
         
-        # Try direct conversion
+        # Try direct conversion (suppress warnings)
         try:
-            converted = pd.to_datetime(series, errors='coerce')
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                converted = pd.to_datetime(series, errors='coerce')
             # Check if conversion was successful (not all NaT)
             if not converted.isna().all():
                 return converted, True
@@ -143,22 +203,27 @@ class DataCollector:
         
         for fmt in date_formats:
             try:
-                converted = pd.to_datetime(series, format=fmt, errors='coerce')
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    converted = pd.to_datetime(series, format=fmt, errors='coerce')
                 if not converted.isna().all():
                     return converted, True
             except:
                 continue
         
-        # Try inferring datetime
+        
         try:
-            converted = pd.to_datetime(series, infer_datetime_format=True, errors='coerce')
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                converted = pd.to_datetime(series, errors='coerce')
             if not converted.isna().all():
                 return converted, True
         except:
             pass
         
         return series, False
-    
+
+
     def _is_likely_date_column(self, series: pd.Series, threshold: float = 0.8) -> bool:
         """
         Check if a series is likely a date column based on content patterns.
@@ -166,7 +231,7 @@ class DataCollector:
         Args:
             series (pd.Series): Series to check
             threshold (float): Minimum proportion of valid dates required
-            
+        
         Returns:
             bool: True if likely a date column
         """
@@ -186,66 +251,22 @@ class DataCollector:
                 return True
         
         return False
-    
+
     def generate_sample_data(self, periods: int = 365*3, products: int = 3) -> pd.DataFrame:
         """
         Generate synthetic sales data for demonstration purposes.
         
+        CHANGED: Now wrapped in caching function for performance.
+        
         Args:
             periods (int): Number of time periods to generate
             products (int): Number of different products to generate
-            
+        
         Returns:
             pd.DataFrame: Synthetic sales data with realistic patterns
         """
-        try:
-            self.logger.info(f"Generating sample data for {periods} periods and {products} products")
-            
-            dates = pd.date_range(start='2020-01-01', periods=periods, freq='D')
-            product_ids = [f'Product_{chr(65+i)}' for i in range(products)]
-            
-            data = []
-            for date in dates:
-                for product_id in product_ids:
-                    # Base trend with slight upward trajectory
-                    trend = 100 + (date - dates[0]).days * 0.1
-                    
-                    # Seasonal patterns
-                    seasonal = 50 * np.sin(2 * np.pi * (date.dayofyear - 1) / 365)
-                    
-                    # Weekly pattern
-                    weekly = 20 * np.sin(2 * np.pi * date.dayofweek / 7)
-                    
-                    # Product-specific variations
-                    product_factor = ord(product_id[-1]) - 64  # A=1, B=2, etc.
-                    product_base = trend * (0.8 + 0.4 * product_factor / len(product_ids))
-                    
-                    # Random noise
-                    noise = np.random.normal(0, 15)
-                    
-                    # Promotional effects (random)
-                    promotion = np.random.choice([0, 1], p=[0.85, 0.15])
-                    promo_effect = 40 if promotion else 0
-                    
-                    sales = max(0, product_base + seasonal + weekly + noise + promo_effect)
-                    
-                    data.append({
-                        'date': date,
-                        'product_id': product_id,
-                        'sales': sales,
-                        'price': np.random.uniform(10, 100),
-                        'promotion': promotion,
-                        'category': f'Category_{(ord(product_id[-1]) - 65) % 3 + 1}'
-                    })
-            
-            df = pd.DataFrame(data)
-            self.logger.info(f"Generated sample data with shape {df.shape}")
-            return df
-            
-        except Exception as e:
-            self.logger.error(f"Error generating sample data: {str(e)}")
-            raise ValueError(f"Failed to generate sample data: {str(e)}")
-    
+        return generate_sample_data_cached(periods, products)
+
     def validate_data_structure(self, df: pd.DataFrame, required_columns: list = None) -> Dict[str, Any]:
         """
         Validate the structure and quality of the loaded data.
@@ -253,7 +274,7 @@ class DataCollector:
         Args:
             df (pd.DataFrame): Dataframe to validate
             required_columns (list, optional): List of required columns
-            
+        
         Returns:
             Dict[str, Any]: Validation results
         """
@@ -296,7 +317,7 @@ class DataCollector:
             missing_percentage = (df.isnull().sum() / len(df)) * 100
             high_missing = missing_percentage[missing_percentage > 30].index.tolist()
             if high_missing:
-                validation_result['issues'].append(f"High missing values in: {high_missing}")
+                validation_result['issues'].append(f"High missing values (>30%) in: {high_missing}")
             
             # Warn if no date columns found
             if not date_columns:
@@ -310,3 +331,133 @@ class DataCollector:
             validation_result['is_valid'] = False
             validation_result['issues'].append(f"Validation error: {str(e)}")
             return validation_result
+
+
+# ============================================================================
+# CACHING FUNCTIONS (NEW)
+# ============================================================================
+
+@st.cache_resource
+def get_data_collector(_config=None):
+    """
+    Get or create cached DataCollector instance (singleton pattern).
+    
+    Args:
+        _config: Config object (underscore = don't hash for caching)
+    
+    Returns:
+        DataCollector: Cached data collector instance
+    """
+    return DataCollector(_config)
+
+
+def hash_file_upload(file_obj) -> str:
+    """
+    Create hash of uploaded file for caching.
+    
+    Args:
+        file_obj: Streamlit UploadedFile object
+    
+    Returns:
+        str: MD5 hash of file content
+    """
+    file_obj.seek(0)
+    file_content = file_obj.read()
+    file_obj.seek(0)  # Reset for later reading
+    return hashlib.md5(file_content).hexdigest()
+
+
+@st.cache_data(ttl=3600)
+def load_csv_cached(file_path: str, **kwargs) -> pd.DataFrame:
+    """
+    Load CSV with caching (for file paths).
+    
+    Args:
+        file_path: Path to CSV file
+        **kwargs: pandas read_csv arguments
+    
+    Returns:
+        pd.DataFrame: Loaded dataframe
+    """
+    return pd.read_csv(file_path, **kwargs)
+
+
+@st.cache_data(ttl=3600)
+def load_csv_from_upload_cached(file_obj, _file_hash: str, **kwargs) -> pd.DataFrame:
+    """
+    Load CSV from Streamlit upload with caching.
+    
+    Args:
+        file_obj: Streamlit UploadedFile object
+        _file_hash: Hash of file content (underscore prefix = don't include in hash)
+        **kwargs: pandas read_csv arguments
+    
+    Returns:
+        pd.DataFrame: Loaded dataframe
+    """
+    file_obj.seek(0)
+    return pd.read_csv(file_obj, **kwargs)
+
+
+@st.cache_data(ttl=3600, show_spinner="Generating sample data...")
+def generate_sample_data_cached(periods: int = 365*3, products: int = 3) -> pd.DataFrame:
+    """
+    Generate synthetic sales data with caching.
+    
+    PERFORMANCE: Cached for 1 hour, prevents regenerating 3,652 rows repeatedly.
+    
+    Args:
+        periods (int): Number of time periods to generate
+        products (int): Number of different products to generate
+    
+    Returns:
+        pd.DataFrame: Synthetic sales data with realistic patterns
+    """
+    try:
+        logger.info(f"Generating sample data for {periods} periods and {products} products")
+        
+        dates = pd.date_range(start='2020-01-01', periods=periods, freq='D')
+        product_ids = [f'Product_{chr(65+i)}' for i in range(products)]
+        
+        data = []
+        
+        for date in dates:
+            for product_id in product_ids:
+                # Base trend with slight upward trajectory
+                trend = 100 + (date - dates[0]).days * 0.1
+                
+                # Seasonal patterns
+                seasonal = 50 * np.sin(2 * np.pi * (date.dayofyear - 1) / 365)
+                
+                # Weekly pattern
+                weekly = 20 * np.sin(2 * np.pi * date.dayofweek / 7)
+                
+                # Product-specific variations
+                product_factor = ord(product_id[-1]) - 64  # A=1, B=2, etc.
+                product_base = trend * (0.8 + 0.4 * product_factor / len(product_ids))
+                
+                # Random noise
+                noise = np.random.normal(0, 15)
+                
+                # Promotional effects (random)
+                promotion = np.random.choice([0, 1], p=[0.85, 0.15])
+                promo_effect = 40 if promotion else 0
+                
+                sales = max(0, product_base + seasonal + weekly + noise + promo_effect)
+                
+                data.append({
+                    'date': date,
+                    'product_id': product_id,
+                    'sales': sales,
+                    'price': np.random.uniform(10, 100),
+                    'promotion': promotion,
+                    'category': f'Category_{(ord(product_id[-1]) - 65) % 3 + 1}'
+                })
+        
+        df = pd.DataFrame(data)
+        logger.info(f"Generated sample data with shape {df.shape}")
+        return df
+        
+    except Exception as e:
+        logger.error(f"Error generating sample data: {str(e)}")
+        raise ValueError(f"Failed to generate sample data: {str(e)}")

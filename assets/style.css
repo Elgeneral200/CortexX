@@ -1,0 +1,188 @@
+/* ============================================================================
+   CortexX Enterprise Forecasting Platform - Stylesheet
+   EXTRACTED: Previously 200+ lines inline, now external for maintainability
+   ============================================================================ */
+
+/* Main Theme - Dark Professional */
+.main {
+    background-color: #0f1116;
+    color: #ffffff;
+}
+
+.main-header {
+    font-size: 2.8rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #00d4ff 0%, #0099ff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-align: center;
+    padding: 1rem 0;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid #2d3746;
+    animation: fadeIn 1s ease-in;
+}
+
+/* Enterprise KPI Cards */
+.kpi-card {
+    background: linear-gradient(135deg, #1a1d29 0%, #252a3a 100%);
+    padding: 1.5rem;
+    border-radius: 12px;
+    border: 1px solid #2d3746;
+    margin-bottom: 1rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    animation: slideUp 0.5s ease-out;
+}
+
+.kpi-card:hover {
+    transform: translateY(-5px);
+    border-color: #00d4ff;
+    box-shadow: 0 8px 30px rgba(0, 212, 255, 0.3);
+}
+
+.metric-value {
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: #00d4ff;
+    line-height: 1.2;
+}
+
+.metric-label {
+    font-size: 0.9rem;
+    color: #8b9bb4;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+
+/* Section Headers */
+.section-header {
+    font-size: 1.6rem;
+    color: #ffffff;
+    margin: 2rem 0 1rem 0;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #00d4ff;
+    font-weight: 700;
+    animation: fadeIn 0.8s ease-in;
+}
+
+/* Professional Cards - Consistent Styling */
+.enterprise-card {
+    background: linear-gradient(135deg, #1a1d29 0%, #252a3a 100%);
+    padding: 2rem;
+    border-radius: 12px;
+    border: 1px solid #2d3746;
+    margin: 1rem 0;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    animation: slideUp 0.6s ease-out;
+    min-height: 180px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.enterprise-card:hover {
+    transform: translateY(-5px);
+    border-color: #00d4ff;
+    box-shadow: 0 8px 30px rgba(0, 212, 255, 0.3);
+}
+
+.card-title {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #00d4ff;
+    margin-bottom: 0.5rem;
+}
+
+.card-description {
+    font-size: 0.95rem;
+    color: #8b9bb4;
+    line-height: 1.5;
+}
+
+/* Sidebar Styling */
+.css-1d391kg, .css-1lcbmhc {
+    background: linear-gradient(180deg, #1a1d29 0%, #0f1116 100%) !important;
+}
+
+/* Button Styling */
+.stButton button {
+    background: linear-gradient(135deg, #00d4ff 0%, #0099ff 100%) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 8px !important;
+    padding: 0.5rem 1rem !important;
+    font-weight: 600 !important;
+    transition: all 0.3s ease !important;
+}
+
+.stButton button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0, 212, 255, 0.4) !important;
+}
+
+/* Progress Bars */
+.stProgress > div > div > div {
+    background: linear-gradient(90deg, #00d4ff 0%, #0099ff 100%) !important;
+}
+
+/* Success/Error Messages */
+.stSuccess {
+    background: linear-gradient(135deg, #00b894 0%, #00a085 100%) !important;
+    border: 1px solid #00b894 !important;
+    color: white !important;
+}
+
+.stError {
+    background: linear-gradient(135deg, #ff7675 0%, #d63031 100%) !important;
+    border: 1px solid #ff7675 !important;
+    color: white !important;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Dataframe Styling */
+.dataframe {
+    background: #1a1d29 !important;
+    color: white !important;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .main-header {
+        font-size: 2rem;
+    }
+    
+    .kpi-card {
+        padding: 1rem;
+    }
+    
+    .metric-value {
+        font-size: 1.8rem;
+    }
+    
+    .enterprise-card {
+        padding: 1.5rem;
+        min-height: 150px;
+    }
+}

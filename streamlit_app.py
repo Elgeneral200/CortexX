@@ -1,46 +1,32 @@
 """
 CortexX - Enterprise Sales Forecasting Platform
-PROFESSIONAL ENTERPRISE EDITION - FINAL VERSION
+PROFESSIONAL ENTERPRISE EDITION - PHASE 2 COMPLETE
+
+ENHANCED:
+- Extracted CSS to external file
+- Integrated StateManager
+- Uses cached singletons
+- Clean, focused main app
+- Fixed navigation (file-based only)
 """
 
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.express as px
-import plotly.graph_objects as go
-from datetime import datetime, timedelta
 import sys
 import os
-import logging
-from typing import Optional, Dict, Any
-import base64
-import io
+from pathlib import Path
 
 # Add src to path
 src_path = os.path.join(os.path.dirname(__file__), 'src')
 if src_path not in sys.path:
     sys.path.append(src_path)
 
-try:
-    from src.data.collection import DataCollector
-    from src.data.preprocessing import DataPreprocessor
-    from src.data.exploration import DataExplorer
-    from src.features.engineering import FeatureEngineer
-    from src.features.selection import FeatureSelector
-    from src.models.training import ModelTrainer
-    from src.models.evaluation import ModelEvaluator
-    from src.models.optimization import HyperparameterOptimizer
-    from src.models.intervals import PredictionIntervals
-    from src.models.backtesting import Backtester
-    from src.visualization.dashboard import VisualizationEngine, display_plotly_chart
-    MODULES_AVAILABLE = True
-except ImportError as e:
-    st.error(f"Module import error: {e}. Running in demo mode.")
-    MODULES_AVAILABLE = False
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Import configuration and utilities
+from src.utils.config import get_config
+from src.utils.state_manager import StateManager
+from src.data.collection import get_data_collector, generate_sample_data_cached
+from src.visualization.dashboard import get_visualizer
 
 # Page configuration - Professional Enterprise Setup
 st.set_page_config(
@@ -50,485 +36,420 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ENTERPRISE DARK THEME CSS WITH ANIMATIONS
-st.markdown("""
-<style>
-    /* Main Theme - Dark Professional */
-    .main {
-        background-color: #0f1116;
-        color: #ffffff;
-    }
+
+def load_css():
+    """Load external CSS file for styling."""
+    css_file = Path(__file__).parent / 'assets' / 'style.css'
     
-    .main-header {
-        font-size: 2.8rem;
-        font-weight: 800;
-        background: linear-gradient(135deg, #00d4ff 0%, #0099ff 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        text-align: center;
-        padding: 1rem 0;
-        margin-bottom: 2rem;
-        border-bottom: 1px solid #2d3746;
-        animation: fadeIn 1s ease-in;
-    }
-    
-    /* Enterprise KPI Cards */
-    .kpi-card {
-        background: linear-gradient(135deg, #1a1d29 0%, #252a3a 100%);
-        padding: 1.5rem;
-        border-radius: 12px;
-        border: 1px solid #2d3746;
-        margin-bottom: 1rem;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-        animation: slideUp 0.5s ease-out;
-    }
-    
-    .kpi-card:hover {
-        transform: translateY(-5px);
-        border-color: #00d4ff;
-        box-shadow: 0 8px 30px rgba(0, 212, 255, 0.3);
-    }
-    
-    .metric-value {
-        font-size: 2.2rem;
-        font-weight: 800;
-        color: #00d4ff;
-        line-height: 1.2;
-    }
-    
-    .metric-label {
-        font-size: 0.9rem;
-        color: #8b9bb4;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        font-weight: 600;
-    }
-    
-    /* Section Headers */
-    .section-header {
-        font-size: 1.6rem;
-        color: #ffffff;
-        margin: 2rem 0 1rem 0;
-        padding-bottom: 0.5rem;
-        border-bottom: 2px solid #00d4ff;
-        font-weight: 700;
-        animation: fadeIn 0.8s ease-in;
-    }
-    
-    /* Professional Cards - Consistent Styling */
-    .enterprise-card {
-        background: linear-gradient(135deg, #1a1d29 0%, #252a3a 100%);
-        padding: 2rem;
-        border-radius: 12px;
-        border: 1px solid #2d3746;
-        margin: 1rem 0;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-        animation: slideUp 0.6s ease-out;
-        min-height: 180px;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-    }
-    
-    .enterprise-card:hover {
-        transform: translateY(-5px);
-        border-color: #00d4ff;
-        box-shadow: 0 8px 30px rgba(0, 212, 255, 0.3);
-    }
-    
-    .card-title {
-        font-size: 1.3rem;
-        font-weight: 700;
-        color: #00d4ff;
-        margin-bottom: 0.5rem;
-    }
-    
-    .card-description {
-        font-size: 0.95rem;
-        color: #8b9bb4;
-        line-height: 1.5;
-    }
-    
-    /* Sidebar Styling */
-    .css-1d391kg, .css-1lcbmhc {
-        background: linear-gradient(180deg, #1a1d29 0%, #0f1116 100%) !important;
-    }
-    
-    /* Button Styling */
-    .stButton button {
-        background: linear-gradient(135deg, #00d4ff 0%, #0099ff 100%) !important;
-        color: white !important;
-        border: none !important;
-        border-radius: 8px !important;
-        padding: 0.5rem 1rem !important;
-        font-weight: 600 !important;
-        transition: all 0.3s ease !important;
-    }
-    
-    .stButton button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 15px rgba(0, 212, 255, 0.4) !important;
-    }
-    
-    /* Progress Bars */
-    .stProgress > div > div > div {
-        background: linear-gradient(90deg, #00d4ff 0%, #0099ff 100%) !important;
-    }
-    
-    /* Success/Error Messages */
-    .stSuccess {
-        background: linear-gradient(135deg, #00b894 0%, #00a085 100%) !important;
-        border: 1px solid #00b894 !important;
-        color: white !important;
-    }
-    
-    .stError {
-        background: linear-gradient(135deg, #ff7675 0%, #d63031 100%) !important;
-        border: 1px solid #ff7675 !important;
-        color: white !important;
-    }
-    
-    /* Animations */
-    @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-    }
-    
-    @keyframes slideUp {
-        from { 
-            opacity: 0;
-            transform: translateY(20px);
+    if css_file.exists():
+        with open(css_file) as f:
+            st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+    else:
+        # Fallback inline CSS if file doesn't exist
+        st.markdown("""
+        <style>
+        .main { background-color: #0f1116; color: #ffffff; }
+        .section-header {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #00d4ff 0%, #0099ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-align: center;
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid #2d3746;
         }
-        to { 
-            opacity: 1;
-            transform: translateY(0);
+        .enterprise-card {
+            background: linear-gradient(135deg, #1a1d29 0%, #252a3a 100%);
+            padding: 2rem;
+            border-radius: 12px;
+            border: 1px solid #2d3746;
+            margin: 1rem 0;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
         }
-    }
+        .card-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #00d4ff;
+            margin-bottom: 0.5rem;
+        }
+        .card-description {
+            font-size: 0.95rem;
+            color: #8b9bb4;
+            line-height: 1.5;
+        }
+        .kpi-card {
+            background: linear-gradient(135deg, #1a1d29 0%, #252a3a 100%);
+            padding: 1.5rem;
+            border-radius: 12px;
+            border: 1px solid #2d3746;
+            margin-bottom: 1rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+        .kpi-card:hover {
+            transform: translateY(-5px);
+            border-color: #00d4ff;
+            box-shadow: 0 8px 30px rgba(0, 212, 255, 0.3);
+        }
+        .metric-value {
+            font-size: 2.2rem;
+            font-weight: 800;
+            color: #00d4ff;
+            line-height: 1.2;
+        }
+        .metric-label {
+            font-size: 0.9rem;
+            color: #8b9bb4;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
+
+def initialize_app():
+    """
+    Initialize application configuration and state.
     
-    /* Dataframe Styling */
-    .dataframe {
-        background: #1a1d29 !important;
-        color: white !important;
-    }
-</style>
-""", unsafe_allow_html=True)
+    ENHANCED: Uses config system and StateManager.
+    """
+    # Initialize configuration
+    config = get_config()
+    
+    # Setup logging (explicit call)
+    if not hasattr(st.session_state, '_logging_configured'):
+        config.setup_logging()
+        st.session_state._logging_configured = True
+    
+    # Validate configuration
+    if not config.validate():
+        st.error("⚠️ Configuration validation failed. Check logs for details.")
+    
+    # Initialize session state
+    StateManager.initialize()
+    
+    # Load CSS
+    load_css()
+
 
 class EnterpriseForecastingApp:
-    """Professional Enterprise Forecasting Application"""
+    """
+    Professional Enterprise Forecasting Application.
+    
+    ENHANCED: Cleaner, focused on orchestration only.
+    """
 
     def __init__(self):
-        self.initialize_session_state()
-        self.visualizer = VisualizationEngine()
-
-    def initialize_session_state(self):
-        """Initialize enterprise session state with proper error handling."""
-        default_states = {
-            'data_loaded': False,
-            'current_data': None,
-            'date_column': None,
-            'value_column': None,
-            'trained_models': {},
-            'model_results': {},
-            'best_model_name': None,
-            'current_page': 'Dashboard',
-            'backtest_results': {}
-        }
-        
-        for key, value in default_states.items():
-            if key not in st.session_state:
-                st.session_state[key] = value
+        self.config = get_config()
+        self.collector = get_data_collector()
+        self.visualizer = get_visualizer()
 
     def render_enterprise_header(self):
         """Render professional enterprise header."""
         st.markdown(
-            '<div class="main-header">🚀 CORTEXX ENTERPRISE FORECASTING PLATFORM</div>', 
+            '<div class="main-header">🧠 CORTEXX ENTERPRISE FORECASTING PLATFORM</div>',
             unsafe_allow_html=True
         )
         
-        if st.session_state.data_loaded:
+        if StateManager.get('data_loaded'):
             self.render_kpi_dashboard()
         else:
             self.render_welcome_dashboard()
 
     def render_kpi_dashboard(self):
-        """Render enterprise KPI dashboard with error handling."""
-        df = st.session_state.current_data
-        
+        """Render enterprise KPI dashboard."""
+        df = StateManager.get('current_data')
         if df is None or df.empty:
             return
-            
+        
         col1, col2, col3, col4, col5 = st.columns(5)
         
+        # Calculate metrics
         metrics = [
             (f"{len(df):,}", "Total Records"),
             (f"{len(df.columns)}", "Features"),
-            (f"{len(st.session_state.trained_models)}", "Trained Models"),
-            (f"${df[st.session_state.value_column].mean():.0f}" if st.session_state.value_column else "-", "Avg Value"),
+            (f"{len(StateManager.get('trained_models', {}))}", "Trained Models"),
+            (f"{df[StateManager.get('value_column')].mean():.0f}" if StateManager.get('value_column') else "-", "Avg Value"),
             (f"{(1 - df.isnull().sum().sum() / (len(df) * len(df.columns))) * 100:.1f}%", "Data Quality")
         ]
         
+        # Display KPI cards
         for i, (value, label) in enumerate(metrics):
             with [col1, col2, col3, col4, col5][i]:
-                st.markdown(f"""
+                st.markdown(f'''
                 <div class="kpi-card">
                     <div class="metric-value">{value}</div>
                     <div class="metric-label">{label}</div>
                 </div>
-                """, unsafe_allow_html=True)
+                ''', unsafe_allow_html=True)
 
     def render_welcome_dashboard(self):
         """Render professional welcome dashboard."""
-        st.markdown("""
-        <div style='text-align: center; padding: 3rem; background: linear-gradient(135deg, #1a1d29 0%, #252a3a 100%); 
-                    border-radius: 15px; border: 1px solid #2d3746; margin: 2rem 0;'>
-            <h2 style='color: #00d4ff; margin-bottom: 1rem;'>🚀 ENTERPRISE FORECASTING PLATFORM</h2>
-            <p style='color: #8b9bb4; font-size: 1.2rem; margin-bottom: 2rem;'>Advanced AI-Powered Sales Forecasting</p>
+        st.markdown('''
+        <div style="text-align: center; padding: 3rem; background: linear-gradient(135deg, #1a1d29 0%, #252a3a 100%); 
+             border-radius: 15px; border: 1px solid #2d3746; margin: 2rem 0;">
+            <h2 style="color: #00d4ff; margin-bottom: 1rem;">⚡ ENTERPRISE FORECASTING PLATFORM</h2>
+            <p style="color: #8b9bb4; font-size: 1.2rem; margin-bottom: 2rem;">
+                Advanced AI-Powered Sales Forecasting
+            </p>
         </div>
-        """, unsafe_allow_html=True)
+        ''', unsafe_allow_html=True)
         
-        # Enterprise Features Grid - EQUAL SIZED CARDS
-        st.markdown("### 🎯 ENTERPRISE CAPABILITIES")
+        st.markdown("### 🚀 ENTERPRISE CAPABILITIES")
         
         features = [
             ("📊", "Advanced Analytics", "Comprehensive EDA with statistical insights and interactive visualizations"),
-            ("🤖", "11 ML Models", "XGBoost, LightGBM, Prophet, Random Forest and more advanced algorithms"),
+            ("🤖", "9 ML Models", "XGBoost, LightGBM, Random Forest, CatBoost and more advanced algorithms"),
             ("🔬", "Hyperparameter Tuning", "Automatic optimization with Optuna for maximum performance"),
             ("📈", "Real-time Forecasting", "Live predictions with confidence intervals and uncertainty quantification"),
             ("🔄", "Backtesting", "Walk-forward validation for robust time series evaluation"),
-            ("🚀", "Enterprise Scale", "Handles large datasets with optimized performance and scalability")
+            ("⚡", "Enterprise Scale", "Handles large datasets with optimized performance and scalability")
         ]
         
-        # Create equal columns for consistent sizing
         cols = st.columns(3)
         for idx, (icon, title, desc) in enumerate(features):
             with cols[idx % 3]:
-                st.markdown(f"""
+                st.markdown(f'''
                 <div class="enterprise-card">
                     <div class="card-title">{icon} {title}</div>
                     <div class="card-description">{desc}</div>
                 </div>
-                """, unsafe_allow_html=True)
+                ''', unsafe_allow_html=True)
 
-    def render_enterprise_sidebar(self):
-        """Render professional sidebar navigation."""
-        with st.sidebar:
-            # Enterprise Branding
-            st.markdown("""
-            <div style='text-align: center; padding: 1.5rem 0; border-bottom: 1px solid #2d3746; margin-bottom: 1rem;'>
-                <h2 style='color: #00d4ff; margin: 0; font-size: 1.8rem;'>CORTEXX</h2>
-                <p style='color: #8b9bb4; margin: 0; font-size: 0.8rem;'>ENTERPRISE EDITION</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # PROFESSIONAL NAVIGATION - NO "🧭 NAVIGATION" HEADER
-            page_options = [
-                "🏠 Dashboard",
-                "📊 Data Exploration", 
-                "⚙️ Feature Engineering",
-                "🤖 Model Training",
-                "📈 Forecasting",
-                "📋 Model Evaluation"
-            ]
-            
-            selected_page = st.radio(
-                "SELECT PAGE",
-                page_options,
-                label_visibility="visible"
+    def render_sidebar_status(self):
+        """
+        Render sidebar status section.
+        
+        TASK 4: Cleaned up - removed fake navigation.
+        """
+        st.markdown("---")
+        st.markdown("### 📊 SYSTEM STATUS")
+        
+        # System metrics
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            data_status = "✅" if StateManager.get('data_loaded') else "❌"
+            st.metric("Data Loaded", data_status)
+        
+        with col2:
+            model_count = len(StateManager.get('trained_models', {}))
+            st.metric("Models", f"{model_count}")
+        
+        # Additional status info
+        if StateManager.get('data_loaded'):
+            df = StateManager.get('current_data')
+            if df is not None:
+                st.metric("Records", f"{len(df):,}")
+                
+                if StateManager.get('best_model_name'):
+                    st.success(f"🏆 Best: {StateManager.get('best_model_name')}")
+
+    def render_quick_actions(self):
+        """Render quick action buttons."""
+        st.markdown("---")
+        st.markdown("### ⚡ QUICK ACTIONS")
+        
+        # Generate sample data
+        if st.button("📊 Generate Sample Data", use_container_width=True, key="sidebar_sample"):
+            self.generate_sample_data()
+        
+        # Reset session
+        if st.button("🔄 Reset Session", use_container_width=True, key="sidebar_reset"):
+            StateManager.clear_all()
+            st.rerun()
+        
+        # Download current data
+        if StateManager.get('data_loaded'):
+            df = StateManager.get('current_data')
+            csv = df.to_csv(index=False)
+            st.download_button(
+                label="💾 Download Data",
+                data=csv,
+                file_name="cortexx_data.csv",
+                mime="text/csv",
+                use_container_width=True,
+                key="sidebar_download"
             )
-            
-            st.session_state.current_page = selected_page
-            
-            st.markdown("---")
-            
-            # System Status
-            st.markdown("### 📊 SYSTEM STATUS")
-            
-            status_col1, status_col2 = st.columns(2)
-            with status_col1:
-                st.metric("Data", "✅" if st.session_state.data_loaded else "❌")
-            with status_col2:
-                st.metric("Models", f"{len(st.session_state.trained_models)}")
-            
-            # Quick Actions
-            st.markdown("### ⚡ QUICK ACTIONS")
-            if st.button("🔄 Reset Session", use_container_width=True):
-                for key in list(st.session_state.keys()):
-                    del st.session_state[key]
-                st.rerun()
-            
-            if st.button("📊 Generate Sample Data", use_container_width=True):
-                self.generate_sample_data()
-            
-            st.markdown("---")
-            st.markdown("**Version:** 3.0 Enterprise")
-            st.markdown("**Status:** 🔴 **LIVE**")
 
     def generate_sample_data(self):
-        """Generate professional sample data."""
-        with st.spinner("🔄 Generating enterprise sample data..."):
+        """Generate professional sample data using cached function."""
+        with st.spinner('Generating enterprise sample data...'):
             try:
-                if MODULES_AVAILABLE:
-                    collector = DataCollector()
-                    df = collector.generate_sample_data(periods=365*2, products=5)
-                else:
-                    dates = pd.date_range(start='2022-01-01', periods=730, freq='D')
-                    data = []
-                    for product_id in range(1, 6):
-                        base_sales = 1000 * product_id
-                        trend = np.linspace(0, 500, 730)
-                        seasonality = 300 * np.sin(2 * np.pi * np.arange(730) / 365)
-                        noise = np.random.randn(730) * 100
-                        sales = base_sales + trend + seasonality + noise
-
-                        for i, date in enumerate(dates):
-                            data.append({
-                                'date': date,
-                                'product_id': f'Product_{product_id}',
-                                'sales': max(0, sales[i]),
-                                'price': np.random.uniform(20, 200),
-                                'promotion': np.random.choice([0, 1], p=[0.8, 0.2])
-                            })
-                    df = pd.DataFrame(data)
+                # Use cached function
+                df = generate_sample_data_cached(periods=3652, products=5)
                 
-                st.session_state.current_data = df
-                st.session_state.data_loaded = True
-                st.session_state.date_column = 'date'
-                st.session_state.value_column = 'sales'
-                st.success("✅ Enterprise sample data generated!")
+                # Update state
+                StateManager.update({
+                    'current_data': df,
+                    'data_loaded': True,
+                    'date_column': 'date',
+                    'value_column': 'sales'
+                })
+                
+                st.success('✅ Enterprise sample data generated!')
                 st.rerun()
                 
             except Exception as e:
-                st.error(f"❌ Error generating sample data: {str(e)}")
-
-    def run(self):
-        """Run the enterprise application."""
-        self.render_enterprise_sidebar()
-        self.render_enterprise_header()
-        
-        # Route to appropriate page
-        page = st.session_state.current_page
-        
-        if page == "🏠 Dashboard":
-            self.dashboard_page()
-        elif page == "📊 Data Exploration":
-            st.info("Navigate to Data Exploration page for detailed analysis")
-        elif page == "⚙️ Feature Engineering":
-            st.info("Navigate to Feature Engineering page for feature creation")
-        elif page == "🤖 Model Training":
-            st.info("Navigate to Model Training page to train ML models")
-        elif page == "📈 Forecasting":
-            st.info("Navigate to Forecasting page for predictions")
-        elif page == "📋 Model Evaluation":
-            st.info("Navigate to Model Evaluation page for analysis")
-
-    def dashboard_page(self):
-        """Professional dashboard page."""
-        st.markdown('<div class="section-header">🏠 ENTERPRISE DASHBOARD</div>', unsafe_allow_html=True)
-        
-        if not st.session_state.data_loaded:
-            self.render_data_upload_section()
-        else:
-            self.render_dashboard_analytics()
+                st.error(f'❌ Error generating sample data: {str(e)}')
 
     def render_data_upload_section(self):
         """Render professional data upload section."""
         col1, col2 = st.columns([2, 1])
         
         with col1:
-            st.markdown("""
+            st.markdown('''
             <div class="enterprise-card">
-                <div class="card-title">📤 UPLOAD YOUR DATA</div>
-                <div class="card-description">Upload your sales data in CSV format for enterprise analysis and forecasting</div>
+                <div class="card-title">📁 UPLOAD YOUR DATA</div>
+                <div class="card-description">
+                    Upload your sales data in CSV format for enterprise analysis and forecasting
+                </div>
             </div>
-            """, unsafe_allow_html=True)
+            ''', unsafe_allow_html=True)
             
             uploaded_file = st.file_uploader(
                 "Choose CSV File",
-                type=['csv'],
-                label_visibility="collapsed"
+                type='csv',
+                label_visibility='collapsed'
             )
             
             if uploaded_file is not None:
                 try:
-                    if MODULES_AVAILABLE:
-                        collector = DataCollector()
-                        df = collector.load_csv_data(uploaded_file)
-                    else:
-                        df = pd.read_csv(uploaded_file)
+                    df = self.collector.load_csv_data(uploaded_file)
                     
                     if not df.empty:
-                        st.session_state.current_data = df
-                        st.session_state.data_loaded = True
+                        StateManager.update({
+                            'current_data': df,
+                            'data_loaded': True
+                        })
+                        
+                        # Auto-detect columns
                         self.auto_detect_columns(df)
-                        st.success(f"✅ Data loaded successfully! {len(df):,} records")
+                        
+                        st.success(f'✅ Data loaded successfully! {len(df):,} records')
                         st.rerun()
                         
                 except Exception as e:
-                    st.error(f"❌ Error loading file: {str(e)}")
+                    st.error(f'❌ Error loading file: {str(e)}')
         
         with col2:
-            st.markdown("""
+            st.markdown('''
             <div class="enterprise-card">
                 <div class="card-title">🚀 QUICK START</div>
-                <div class="card-description">Get started instantly with comprehensive sample enterprise data</div>
+                <div class="card-description">
+                    Get started instantly with comprehensive sample enterprise data
+                </div>
             </div>
-            """, unsafe_allow_html=True)
+            ''', unsafe_allow_html=True)
             
-            if st.button("🎲 GENERATE SAMPLE DATA", use_container_width=True, type="primary"):
+            if st.button("📊 GENERATE SAMPLE DATA", use_container_width=True, type="primary"):
                 self.generate_sample_data()
 
     def auto_detect_columns(self, df: pd.DataFrame):
-        """Auto-detect columns with error handling."""
+        """Auto-detect date and value columns."""
         date_patterns = ['date', 'time', 'timestamp', 'datetime']
+        
+        # Detect date column
         for col in df.columns:
             if any(pattern in col.lower() for pattern in date_patterns):
                 try:
                     df[col] = pd.to_datetime(df[col])
-                    st.session_state.date_column = col
+                    StateManager.set('date_column', col)
                     break
                 except:
                     continue
         
+        # Detect value column (first numeric column)
         numeric_cols = df.select_dtypes(include=[np.number]).columns
         if len(numeric_cols) > 0:
-            st.session_state.value_column = numeric_cols[0]
+            StateManager.set('value_column', numeric_cols[0])
 
     def render_dashboard_analytics(self):
         """Render professional dashboard analytics."""
-        df = st.session_state.current_data
+        df = StateManager.get('current_data')
         
-        # Quick Insights
         st.markdown("### 📈 QUICK INSIGHTS")
         
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            if st.session_state.date_column:
-                date_range = f"{df[st.session_state.date_column].min().strftime('%Y-%m-%d')} to {df[st.session_state.date_column].max().strftime('%Y-%m-%d')}"
+            date_col = StateManager.get('date_column')
+            if date_col and date_col in df.columns:
+                date_range = f"{df[date_col].min().strftime('%Y-%m-%d')} to {df[date_col].max().strftime('%Y-%m-%d')}"
                 st.metric("Date Range", date_range)
         
         with col2:
-            if st.session_state.value_column:
-                total_value = df[st.session_state.value_column].sum()
-                st.metric("Total Value", f"${total_value:,.0f}")
+            value_col = StateManager.get('value_column')
+            if value_col and value_col in df.columns:
+                total_value = df[value_col].sum()
+                st.metric("Total Value", f"{total_value:,.0f}")
         
         with col3:
             completeness = (1 - df.isnull().sum().sum() / (len(df) * len(df.columns))) * 100
             st.metric("Data Quality", f"{completeness:.1f}%")
         
-        # Data Preview
-        st.markdown("### 📋 DATA PREVIEW")
+        st.markdown("---")
+        st.markdown("### 📊 DATA PREVIEW")
         st.dataframe(df.head(10), use_container_width=True)
+
+    def dashboard_page(self):
+        """Main dashboard page."""
+        st.markdown(
+            '<div class="section-header">🏠 ENTERPRISE DASHBOARD</div>',
+            unsafe_allow_html=True
+        )
+        
+        if not StateManager.get('data_loaded'):
+            self.render_data_upload_section()
+        else:
+            self.render_dashboard_analytics()
+
+    def run(self):
+        """
+        Run the enterprise application.
+        
+        TASK 4: Simplified - removed fake navigation, file-based pages handle routing.
+        """
+        # Render sidebar components
+        with st.sidebar:
+            st.markdown('''
+            <div style="text-align: center; padding: 1.5rem 0; border-bottom: 1px solid #2d3746; margin-bottom: 1rem;">
+                <h2 style="color: #00d4ff; margin: 0; font-size: 1.8rem;">CORTEXX</h2>
+                <p style="color: #8b9bb4; margin: 0; font-size: 0.8rem;">ENTERPRISE EDITION</p>
+            </div>
+            ''', unsafe_allow_html=True)
+            
+            self.render_sidebar_status()
+            self.render_quick_actions()
+            
+            st.markdown("---")
+            st.markdown("**Version** 3.0 Enterprise")
+            st.markdown("**Status** 🟢 LIVE")
+            st.markdown("**Phase 2** ✅ Complete")
+        
+        # Render header and main content
+        self.render_enterprise_header()
+        self.dashboard_page()
+
 
 def main():
     """Main entry point."""
     try:
+        # Initialize app
+        initialize_app()
+        
+        # Run app
         app = EnterpriseForecastingApp()
         app.run()
+        
     except Exception as e:
-        st.error(f"🚨 Application error: {str(e)}")
+        st.error(f"❌ Application error: {str(e)}")
+        import traceback
+        st.code(traceback.format_exc())
+
 
 if __name__ == "__main__":
     main()

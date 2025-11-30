@@ -1,7 +1,11 @@
 """
 Professional Model Evaluation with Performance Analysis - PRODUCTION READY VERSION
-"""
 
+PHASE 2 INTEGRATED:
+- Uses StateManager for all state operations
+- Cached visualizer singleton
+- All advanced features preserved
+"""
 
 import streamlit as st
 import pandas as pd
@@ -14,22 +18,22 @@ import os
 import io
 import base64
 
-
 # Add src to path
 src_path = os.path.join(os.path.dirname(__file__), '..', 'src')
 if src_path not in sys.path:
     sys.path.append(src_path)
 
-
+# ✅ PHASE 2 IMPORTS
 try:
+    from src.utils.state_manager import StateManager, is_data_loaded, get_current_data
     from src.models.evaluation import ModelEvaluator
     from src.models.backtesting import Backtester
-    from src.visualization.dashboard import VisualizationEngine, display_plotly_chart
+    from src.visualization.dashboard import get_visualizer, display_plotly_chart
+    from src.utils.config import get_config
     MODULES_AVAILABLE = True
 except ImportError as e:
     st.error(f"Model evaluation modules not available: {e}")
     MODULES_AVAILABLE = False
-
 
 st.set_page_config(
     page_title="Model Evaluation - CortexX",
@@ -43,7 +47,12 @@ def main():
     
     st.markdown('<div class="section-header">📋 ENTERPRISE MODEL EVALUATION</div>', unsafe_allow_html=True)
     
-    if not st.session_state.get('trained_models', {}):
+    # ✅ UPDATED: Use StateManager
+    StateManager.initialize()
+    
+    trained_models = StateManager.get('trained_models', {})
+    
+    if not trained_models:
         st.warning("⚠️ Please train models first from the Model Training page")
         return
     
@@ -53,7 +62,8 @@ def main():
     
     # Initialize components
     evaluator = ModelEvaluator()
-    visualizer = VisualizationEngine()
+    # ✅ UPDATED: Use cached singleton
+    visualizer = get_visualizer()
     
     # Model Evaluation Tabs
     tab1, tab2, tab3, tab4 = st.tabs([
@@ -76,7 +86,7 @@ def main():
         render_advanced_insights()
 
 
-def render_model_comparison(evaluator: ModelEvaluator, visualizer: VisualizationEngine):
+def render_model_comparison(evaluator: ModelEvaluator, visualizer):
     """Render comprehensive model comparison."""
     
     st.markdown("""
@@ -86,12 +96,15 @@ def render_model_comparison(evaluator: ModelEvaluator, visualizer: Visualization
     </div>
     """, unsafe_allow_html=True)
     
-    if not st.session_state.model_results:
+    # ✅ UPDATED: Use StateManager
+    model_results = StateManager.get('model_results', {})
+    
+    if not model_results:
         st.warning("No model results available for comparison")
         return
     
     # Create comparison dataframe
-    comparison_df = evaluator.compare_models(st.session_state.model_results)
+    comparison_df = evaluator.compare_models(model_results)
     
     if comparison_df.empty:
         st.warning("No valid comparison data available")
@@ -169,8 +182,8 @@ def render_model_comparison(evaluator: ModelEvaluator, visualizer: Visualization
                 st.success(f"🏆 **BEST BY R²**: {best_model_r2}")
                 st.metric("Highest R²", f"{comparison_df['R2'].max():.4f}")
         
-        # Store best model
-        st.session_state.best_model_name = best_model_rmse
+        # ✅ UPDATED: Store using StateManager
+        StateManager.set('best_model_name', best_model_rmse)
 
 
 def create_radar_chart(comparison_df: pd.DataFrame, metrics: list) -> go.Figure:
@@ -235,7 +248,7 @@ def create_radar_chart(comparison_df: pd.DataFrame, metrics: list) -> go.Figure:
     return fig
 
 
-def render_performance_analysis(visualizer: VisualizationEngine):
+def render_performance_analysis(visualizer):
     """Render detailed performance analysis for individual models."""
     
     st.markdown("""
@@ -245,21 +258,24 @@ def render_performance_analysis(visualizer: VisualizationEngine):
     </div>
     """, unsafe_allow_html=True)
     
-    if not st.session_state.model_results:
+    # ✅ UPDATED: Use StateManager
+    model_results = StateManager.get('model_results', {})
+    
+    if not model_results:
         st.warning("No model results available")
         return
     
     # Model selection for detailed analysis
     selected_model = st.selectbox(
         "Select Model for Detailed Analysis",
-        list(st.session_state.model_results.keys()),
+        list(model_results.keys()),
         key="detail_model"
     )
     
-    if selected_model not in st.session_state.model_results:
+    if selected_model not in model_results:
         return
     
-    results = st.session_state.model_results[selected_model]
+    results = model_results[selected_model]
     
     # Performance metrics
     st.markdown("#### 📈 PERFORMANCE METRICS")
@@ -389,7 +405,7 @@ def render_performance_analysis(visualizer: VisualizationEngine):
             st.error(f"Error creating feature importance plot: {str(e)}")
 
 
-def render_backtesting_analysis(visualizer: VisualizationEngine):
+def render_backtesting_analysis(visualizer):
     """Render backtesting analysis."""
     
     st.markdown("""
@@ -399,11 +415,12 @@ def render_backtesting_analysis(visualizer: VisualizationEngine):
     </div>
     """, unsafe_allow_html=True)
     
-    if not st.session_state.get('backtest_results', {}):
+    # ✅ UPDATED: Use StateManager
+    backtest_results = StateManager.get('backtest_results', {})
+    
+    if not backtest_results:
         st.info("No backtesting results available. Enable backtesting in the Model Training page.")
         return
-    
-    backtest_results = st.session_state.backtest_results
     
     # Backtesting summary
     st.markdown("#### 📊 BACKTESTING PERFORMANCE SUMMARY")
@@ -472,7 +489,10 @@ def render_advanced_insights():
     </div>
     """, unsafe_allow_html=True)
     
-    if not st.session_state.model_results:
+    # ✅ UPDATED: Use StateManager
+    model_results = StateManager.get('model_results', {})
+    
+    if not model_results:
         st.warning("No model results available for insights")
         return
     
@@ -483,7 +503,7 @@ def render_advanced_insights():
     try:
         # Find best model by RMSE with proper validation
         valid_models = {}
-        for model_name, results in st.session_state.model_results.items():
+        for model_name, results in model_results.items():
             rmse = results.get('test_rmse', results.get('rmse', float('inf')))
             if rmse != float('inf') and not np.isnan(rmse):
                 valid_models[model_name] = rmse
@@ -584,18 +604,22 @@ def export_comprehensive_report():
     """Export comprehensive model evaluation report in multiple formats."""
     
     try:
+        # ✅ UPDATED: Use StateManager
+        model_results = StateManager.get('model_results', {})
+        backtest_results = StateManager.get('backtest_results', {})
+        
         # Create comprehensive report
         report_content = "# CORTEXX ENTERPRISE MODEL EVALUATION REPORT\n\n"
         report_content += f"**Generated**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
         report_content += f"**Platform**: CortexX Enterprise Forecasting v3.0\n\n"
         
         # Add model comparison
-        if st.session_state.model_results:
+        if model_results:
             report_content += "## 📊 MODEL PERFORMANCE SUMMARY\n\n"
             
             # Create comparison table
             comparison_data = []
-            for model_name, results in st.session_state.model_results.items():
+            for model_name, results in model_results.items():
                 rmse_val = results.get('test_rmse', results.get('rmse', 'N/A'))
                 mae_val = results.get('test_mae', results.get('mae', 'N/A'))
                 r2_val = results.get('test_r2', results.get('r2', 'N/A'))
@@ -619,9 +643,9 @@ def export_comprehensive_report():
                     report_content += "| " + " | ".join(str(x) for x in row.values()) + " |\n"
         
         # Add backtesting results
-        if st.session_state.get('backtest_results', {}):
+        if backtest_results:
             report_content += "\n## 🔄 BACKTESTING RESULTS\n\n"
-            for model_name, results in st.session_state.backtest_results.items():
+            for model_name, results in backtest_results.items():
                 if 'aggregate_metrics' in results:
                     metrics = results['aggregate_metrics']
                     report_content += f"### {model_name}\n"
@@ -683,9 +707,12 @@ def export_performance_data():
     """Export performance data in multiple formats."""
     
     try:
+        # ✅ UPDATED: Use StateManager
+        model_results = StateManager.get('model_results', {})
+        
         # Create performance data
         performance_data = []
-        for model_name, results in st.session_state.model_results.items():
+        for model_name, results in model_results.items():
             performance_data.append({
                 'model': model_name,
                 'rmse': results.get('test_rmse', results.get('rmse', np.nan)),
@@ -751,17 +778,21 @@ def export_strategic_insights():
     """Export strategic insights report."""
     
     try:
+        # ✅ UPDATED: Use StateManager
+        model_results = StateManager.get('model_results', {})
+        best_model_name = StateManager.get('best_model_name')
+        
         insights_content = "# CORTEXX STRATEGIC INSIGHTS REPORT\n\n"
         insights_content += f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
         
         # Best model insights
-        if st.session_state.get('best_model_name'):
+        if best_model_name:
             insights_content += f"## 🏆 BEST PERFORMING MODEL\n\n"
-            insights_content += f"**{st.session_state.best_model_name}** is recommended for production deployment based on comprehensive evaluation.\n\n"
+            insights_content += f"**{best_model_name}** is recommended for production deployment based on comprehensive evaluation.\n\n"
         
         # Performance insights with validation
         valid_rmse = []
-        for results in st.session_state.model_results.values():
+        for results in model_results.values():
             rmse = results.get('test_rmse', results.get('rmse', float('inf')))
             if rmse != float('inf') and not np.isnan(rmse):
                 valid_rmse.append(rmse)

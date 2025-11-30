@@ -1,5 +1,10 @@
 """
 Enhanced Data Exploration Page - OPTIMIZED PERFORMANCE
+
+PHASE 2 INTEGRATED:
+- Uses StateManager for all state operations
+- Cached visualizer singleton
+- Performance optimizations maintained
 """
 
 import streamlit as st
@@ -16,11 +21,15 @@ src_path = os.path.join(os.path.dirname(__file__), '..', 'src')
 if src_path not in sys.path:
     sys.path.append(src_path)
 
+# ✅ PHASE 2 IMPORTS
 try:
+    from src.utils.state_manager import StateManager, is_data_loaded, get_current_data
     from src.data.exploration import DataExplorer
-    from src.visualization.dashboard import VisualizationEngine, display_plotly_chart
+    from src.visualization.dashboard import get_visualizer, display_plotly_chart
+    from src.utils.config import get_config
     MODULES_AVAILABLE = True
-except ImportError:
+except ImportError as e:
+    st.error(f"Module import error: {e}")
     MODULES_AVAILABLE = False
 
 st.set_page_config(
@@ -29,17 +38,22 @@ st.set_page_config(
     layout="wide"
 )
 
+
 def main():
     """Main data exploration function."""
     
     st.markdown('<div class="section-header">📊 ENTERPRISE DATA EXPLORATION</div>', unsafe_allow_html=True)
     
-    if not st.session_state.get('data_loaded', False):
+    # ✅ UPDATED: Use StateManager
+    StateManager.initialize()
+    
+    if not is_data_loaded():
         st.warning("⚠️ Please load data first from the Dashboard page")
         return
     
-    df = st.session_state.current_data
-    visualizer = VisualizationEngine()
+    # ✅ UPDATED: Use helper functions
+    df = get_current_data()
+    visualizer = get_visualizer()
     
     # Data Overview Section
     st.markdown("### 📈 DATA OVERVIEW")
@@ -76,7 +90,8 @@ def main():
     with tab4:
         render_correlation_analysis(df, visualizer)
 
-def render_data_profile(df: pd.DataFrame, visualizer: VisualizationEngine):
+
+def render_data_profile(df: pd.DataFrame, visualizer):
     """Render comprehensive data profile."""
     st.subheader("📋 Data Profile & Quality Assessment")
     
@@ -99,7 +114,7 @@ def render_data_profile(df: pd.DataFrame, visualizer: VisualizationEngine):
             'Missing %': (df.isnull().sum() / len(df) * 100).round(2)
         }).sort_values('Missing %', ascending=False)
         
-        st.dataframe(missing_data.head(10), use_container_width=True)  # Show top 10 only
+        st.dataframe(missing_data.head(10), use_container_width=True)
     
     with col2:
         # Column information
@@ -110,7 +125,7 @@ def render_data_profile(df: pd.DataFrame, visualizer: VisualizationEngine):
             'Non-Null Count': df.count(),
             'Unique Values': [df[col].nunique() for col in df.columns]
         })
-        st.dataframe(col_info.head(15), use_container_width=True)  # Limit rows
+        st.dataframe(col_info.head(15), use_container_width=True)
         
         # Data quality score
         st.markdown("**Data Quality Score**")
@@ -127,7 +142,8 @@ def render_data_profile(df: pd.DataFrame, visualizer: VisualizationEngine):
         overall_quality = (completeness + uniqueness) / 2
         st.progress(overall_quality / 100, text=f"Overall Data Quality: {overall_quality:.1f}%")
 
-def render_distribution_analysis(df: pd.DataFrame, visualizer: VisualizationEngine):
+
+def render_distribution_analysis(df: pd.DataFrame, visualizer):
     """Render distribution analysis visualizations."""
     st.subheader("📊 Distribution Analysis")
     
@@ -147,7 +163,7 @@ def render_distribution_analysis(df: pd.DataFrame, visualizer: VisualizationEngi
             # Histogram with performance optimization
             fig = px.histogram(df, x=selected_col, 
                              title=f"Distribution of {selected_col}",
-                             nbins=30,  # Reduced from 50 for performance
+                             nbins=30,
                              template="plotly_white")
             fig.update_layout(height=400)
             display_plotly_chart(fig)
@@ -161,12 +177,14 @@ def render_distribution_analysis(df: pd.DataFrame, visualizer: VisualizationEngi
             fig.update_layout(height=400)
             display_plotly_chart(fig)
 
-def render_time_series_analysis(df: pd.DataFrame, visualizer: VisualizationEngine):
+
+def render_time_series_analysis(df: pd.DataFrame, visualizer):
     """Render time series analysis visualizations - OPTIMIZED PERFORMANCE."""
     st.subheader("🕒 Time Series Analysis")
     
-    date_col = st.session_state.get('date_column')
-    value_col = st.session_state.get('value_column')
+    # ✅ UPDATED: Use StateManager
+    date_col = StateManager.get('date_column')
+    value_col = StateManager.get('value_column')
     
     if not date_col or date_col not in df.columns:
         st.warning("No date column detected. Time series analysis requires a date column.")
@@ -191,7 +209,7 @@ def render_time_series_analysis(df: pd.DataFrame, visualizer: VisualizationEngin
         try:
             # Sample data for better performance with large datasets
             if len(df) > 1000:
-                df_sampled = df.iloc[::len(df)//1000]  # Sample for large datasets
+                df_sampled = df.iloc[::len(df)//1000]
                 st.info("📊 Showing sampled data for better performance")
             else:
                 df_sampled = df
@@ -257,7 +275,8 @@ def render_time_series_analysis(df: pd.DataFrame, visualizer: VisualizationEngin
         except Exception as e:
             st.error(f"Error calculating rolling statistics: {str(e)}")
 
-def render_correlation_analysis(df: pd.DataFrame, visualizer: VisualizationEngine):
+
+def render_correlation_analysis(df: pd.DataFrame, visualizer):
     """Render correlation analysis visualizations."""
     st.subheader("🔗 Correlation Analysis")
     
@@ -298,7 +317,7 @@ def render_correlation_analysis(df: pd.DataFrame, visualizer: VisualizationEngin
             correlations = []
             for i in range(len(corr_matrix.columns)):
                 for j in range(i+1, len(corr_matrix.columns)):
-                    if j < len(corr_matrix.columns):  # Safety check
+                    if j < len(corr_matrix.columns):
                         col1 = corr_matrix.columns[i]
                         col2 = corr_matrix.columns[j]
                         corr_value = corr_matrix.iloc[i, j]
@@ -314,6 +333,7 @@ def render_correlation_analysis(df: pd.DataFrame, visualizer: VisualizationEngin
                 
         except Exception as e:
             st.error(f"Error calculating correlations: {str(e)}")
+
 
 if __name__ == "__main__":
     main()

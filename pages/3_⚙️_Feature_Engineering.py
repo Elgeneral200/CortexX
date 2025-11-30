@@ -1,5 +1,10 @@
 """
 Professional Feature Engineering Page - FIXED Rolling Features Display
+
+PHASE 2 INTEGRATED:
+- Uses StateManager for all state operations
+- Cached singletons where applicable
+- All optimizations preserved
 """
 
 import streamlit as st
@@ -16,9 +21,12 @@ src_path = os.path.join(os.path.dirname(__file__), '..', 'src')
 if src_path not in sys.path:
     sys.path.append(src_path)
 
+# ✅ PHASE 2 IMPORTS
 try:
+    from src.utils.state_manager import StateManager, is_data_loaded, get_current_data
     from src.features.engineering import FeatureEngineer
-    from src.visualization.dashboard import VisualizationEngine, display_plotly_chart
+    from src.visualization.dashboard import get_visualizer, display_plotly_chart
+    from src.utils.config import get_config
     MODULES_AVAILABLE = True
 except ImportError as e:
     st.error(f"Feature engineering modules not available: {e}")
@@ -30,12 +38,16 @@ st.set_page_config(
     layout="wide"
 )
 
+
 def main():
     """Main feature engineering function."""
     
     st.markdown('<div class="section-header">⚙️ ENTERPRISE FEATURE ENGINEERING</div>', unsafe_allow_html=True)
     
-    if not st.session_state.get('data_loaded', False):
+    # ✅ UPDATED: Use StateManager
+    StateManager.initialize()
+    
+    if not is_data_loaded():
         st.warning("⚠️ Please load data first from the Dashboard page")
         return
     
@@ -43,7 +55,8 @@ def main():
         st.error("❌ Feature engineering modules not available.")
         return
     
-    df = st.session_state.current_data.copy()
+    # ✅ UPDATED: Use helper function
+    df = get_current_data().copy()
     
     # Feature Engineering Tabs
     tab1, tab2, tab3, tab4 = st.tabs([
@@ -65,6 +78,7 @@ def main():
     with tab4:
         render_feature_summary(df)
 
+
 def render_time_features(df: pd.DataFrame):
     """Render time-based feature engineering."""
     
@@ -75,7 +89,8 @@ def render_time_features(df: pd.DataFrame):
     </div>
     """, unsafe_allow_html=True)
     
-    date_col = st.session_state.get('date_column')
+    # ✅ UPDATED: Use StateManager
+    date_col = StateManager.get('date_column')
     
     if not date_col or date_col not in df.columns:
         st.warning("No date column detected. Time features require a date column.")
@@ -117,7 +132,8 @@ def render_time_features(df: pd.DataFrame):
                     new_columns = [col for col in df_enhanced.columns if col not in df.columns]
                     
                     if new_columns:
-                        st.session_state.current_data = df_enhanced
+                        # ✅ UPDATED: Use StateManager
+                        StateManager.set('current_data', df_enhanced)
                         st.success(f"✅ Created {len(new_columns)} time features!")
                         
                         # Display new features
@@ -133,6 +149,7 @@ def render_time_features(df: pd.DataFrame):
                 except Exception as e:
                     st.error(f"❌ Error creating time features: {str(e)}")
 
+
 def render_lag_features(df: pd.DataFrame):
     """Render lag feature engineering."""
     
@@ -143,7 +160,8 @@ def render_lag_features(df: pd.DataFrame):
     </div>
     """, unsafe_allow_html=True)
     
-    value_col = st.session_state.get('value_column')
+    # ✅ UPDATED: Use StateManager
+    value_col = StateManager.get('value_column')
     
     if not value_col or value_col not in df.columns:
         st.warning("No value column selected. Please set a target value column.")
@@ -187,7 +205,8 @@ def render_lag_features(df: pd.DataFrame):
                     new_columns = [col for col in df_lagged.columns if col not in df.columns]
                     
                     if new_columns:
-                        st.session_state.current_data = df_lagged
+                        # ✅ UPDATED: Use StateManager
+                        StateManager.set('current_data', df_lagged)
                         st.success(f"✅ Created {len(new_columns)} lag features!")
                         
                         # Display correlation with target
@@ -218,6 +237,7 @@ def render_lag_features(df: pd.DataFrame):
                 except Exception as e:
                     st.error(f"❌ Error creating lag features: {str(e)}")
 
+
 def render_rolling_features(df: pd.DataFrame):
     """Render rolling feature engineering - FIXED DISPLAY."""
     
@@ -228,8 +248,9 @@ def render_rolling_features(df: pd.DataFrame):
     </div>
     """, unsafe_allow_html=True)
     
-    value_col = st.session_state.get('value_column')
-    date_col = st.session_state.get('date_column')
+    # ✅ UPDATED: Use StateManager
+    value_col = StateManager.get('value_column')
+    date_col = StateManager.get('date_column')
     
     if not value_col or value_col not in df.columns:
         st.warning("No value column selected. Please set a target value column.")
@@ -279,7 +300,8 @@ def render_rolling_features(df: pd.DataFrame):
                     new_columns = list(new_columns_set)
                     
                     if new_columns:
-                        st.session_state.current_data = df_rolling
+                        # ✅ UPDATED: Use StateManager
+                        StateManager.set('current_data', df_rolling)
                         st.success(f"✅ Created {len(new_columns)} rolling features!")
                         
                         # Show feature overview - FIXED DISPLAY
@@ -314,6 +336,7 @@ def render_rolling_features(df: pd.DataFrame):
                 except Exception as e:
                     st.error(f"❌ Error creating rolling features: {str(e)}")
                     st.info("💡 Tip: Ensure your data is properly sorted by the date column")
+
 
 def render_feature_summary(df: pd.DataFrame):
     """Render feature engineering summary."""
@@ -361,6 +384,7 @@ def render_feature_summary(df: pd.DataFrame):
     # Data preview
     st.markdown("**👀 ENHANCED DATA PREVIEW**")
     st.dataframe(df.head(12), use_container_width=True)
+
 
 if __name__ == "__main__":
     main()
