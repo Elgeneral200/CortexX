@@ -274,6 +274,13 @@ curl http://localhost:8501/_stcore/health
 
 ```
 cortexX-forecasting/
+├── pages/
+│   ├── 1_🏠_Dashboard.py
+│   ├── 2_📊_Data_Exploration.py
+│   ├── 3_⚙️_Feature_Engineering.py
+│   ├── 4_🤖_Model_Training.py
+│   ├── 5_📈_Forecasting.py
+│   └── 6_📋_Model_Evaluation.py
 ├── src/
 │   ├── data/
 │   │   ├── collection.py          # Data loading and generation

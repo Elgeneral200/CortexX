@@ -1,7 +1,10 @@
 """
 Model training module for CortexX sales forecasting platform.
 Handles training of multiple forecasting models including Prophet, XGBoost, and LightGBM.
+
+FIXED: Proper NaN handling and removed hyperparameter application issues.
 """
+
 
 import pandas as pd
 import numpy as np
@@ -10,9 +13,12 @@ import logging
 import time
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.preprocessing import StandardScaler
+from sklearn.impute import SimpleImputer
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import warnings
 
-# --- Imports جديدة ---
+
+# --- Model Imports ---
 from sklearn.linear_model import LinearRegression, Ridge, Lasso
 from sklearn.svm import SVR
 from sklearn.tree import DecisionTreeRegressor
@@ -25,18 +31,20 @@ try:
     from prophet import Prophet
 except ImportError:
     Prophet = None
-# --- نهاية Imports الجديدة ---
 
 
 logger = logging.getLogger(__name__)
 
+
 class ModelTrainer:
     """
     A class to handle training of multiple forecasting models.
+    Includes proper data preprocessing and NaN handling.
     """
     
     def __init__(self):
         self.logger = logging.getLogger(__name__)
+        self.imputer = SimpleImputer(strategy='mean')
         warnings.filterwarnings('ignore')
     
     def train_test_split(self, df: pd.DataFrame, date_col: str, target_col: str, 
@@ -94,13 +102,20 @@ class ModelTrainer:
             future = model.make_future_dataframe(periods=0)
             forecast = model.predict(future)
             
+            # Calculate metrics
+            y_true = prophet_df['y'].values
+            y_pred = forecast['yhat'].values[:len(prophet_df)]
+            
             results = {
                 'model': 'Prophet',
                 'training_time': training_time,
                 'model_object': model,
                 'forecast': forecast,
-                'actual': prophet_df['y'].values,
-                'predictions': forecast['yhat'].values[:len(prophet_df)]
+                'y_test': y_true,
+                'test_predictions': y_pred,
+                'test_rmse': np.sqrt(mean_squared_error(y_true, y_pred)),
+                'test_mae': mean_absolute_error(y_true, y_pred),
+                'test_r2': r2_score(y_true, y_pred)
             }
             
             self.logger.info("Prophet model training completed successfully")
@@ -112,9 +127,7 @@ class ModelTrainer:
     
     def train_xgboost(self, train_df: pd.DataFrame, test_df: pd.DataFrame,
                       date_col: str, target_col: str) -> Tuple[Any, Dict[str, Any]]:
-        """
-        Train XGBoost model for time series forecasting.
-        """
+        """Train XGBoost model for time series forecasting."""
         try:
             X_train, y_train = self._prepare_features(train_df, date_col, target_col)
             X_test, y_test = self._prepare_features(test_df, date_col, target_col)
@@ -142,9 +155,11 @@ class ModelTrainer:
                 'training_time': training_time,
                 'model_object': model,
                 'feature_importance': dict(zip(X_train.columns, model.feature_importances_)),
-                'actual': y_test,
-                'predictions': y_pred_test,
-                'dates': test_df[date_col].values
+                'y_test': y_test.values,
+                'test_predictions': y_pred_test,
+                'test_rmse': np.sqrt(mean_squared_error(y_test, y_pred_test)),
+                'test_mae': mean_absolute_error(y_test, y_pred_test),
+                'test_r2': r2_score(y_test, y_pred_test)
             }
             
             self.logger.info("XGBoost model training completed successfully")
@@ -156,9 +171,7 @@ class ModelTrainer:
     
     def train_lightgbm(self, train_df: pd.DataFrame, test_df: pd.DataFrame,
                        date_col: str, target_col: str) -> Tuple[Any, Dict[str, Any]]:
-        """
-        Train LightGBM model for time series forecasting.
-        """
+        """Train LightGBM model for time series forecasting."""
         try:
             X_train, y_train = self._prepare_features(train_df, date_col, target_col)
             X_test, y_test = self._prepare_features(test_df, date_col, target_col)
@@ -169,11 +182,12 @@ class ModelTrainer:
             start_time = time.time()
             
             model = lgb.LGBMRegressor(
-                n_estimators=100, # Using 100 for consistency, notebook used 1000 with early stopping
+                n_estimators=100,
                 max_depth=6,
                 learning_rate=0.1,
                 random_state=42,
-                n_jobs=-1
+                n_jobs=-1,
+                verbose=-1
             )
             
             model.fit(X_train, y_train)
@@ -186,9 +200,11 @@ class ModelTrainer:
                 'training_time': training_time,
                 'model_object': model,
                 'feature_importance': dict(zip(X_train.columns, model.feature_importances_)),
-                'actual': y_test,
-                'predictions': y_pred_test,
-                'dates': test_df[date_col].values
+                'y_test': y_test.values,
+                'test_predictions': y_pred_test,
+                'test_rmse': np.sqrt(mean_squared_error(y_test, y_pred_test)),
+                'test_mae': mean_absolute_error(y_test, y_pred_test),
+                'test_r2': r2_score(y_test, y_pred_test)
             }
             
             self.logger.info("LightGBM model training completed successfully")
@@ -198,10 +214,9 @@ class ModelTrainer:
             self.logger.error(f"Error training LightGBM model: {str(e)}")
             return self._create_dummy_model(train_df, date_col, target_col, 'LightGBM')
 
-
-    """Trains a Linear Regression model."""
     def train_linear_regression(self, train_df: pd.DataFrame, test_df: pd.DataFrame,
                                   date_col: str, target_col: str) -> Tuple[Any, Dict[str, Any]]:
+        """Trains a Linear Regression model."""
         try:
             X_train, y_train = self._prepare_features(train_df, date_col, target_col)
             X_test, y_test = self._prepare_features(test_df, date_col, target_col)
@@ -221,9 +236,11 @@ class ModelTrainer:
                 'model': 'LinearRegression',
                 'training_time': training_time,
                 'model_object': model,
-                'actual': y_test,
-                'predictions': y_pred_test,
-                'dates': test_df[date_col].values
+                'y_test': y_test.values,
+                'test_predictions': y_pred_test,
+                'test_rmse': np.sqrt(mean_squared_error(y_test, y_pred_test)),
+                'test_mae': mean_absolute_error(y_test, y_pred_test),
+                'test_r2': r2_score(y_test, y_pred_test)
             }
             
             self.logger.info("LinearRegression model training completed successfully")
@@ -233,12 +250,9 @@ class ModelTrainer:
             self.logger.error(f"Error training LinearRegression model: {str(e)}")
             return self._create_dummy_model(train_df, date_col, target_col, 'LinearRegression')
 
-        
-    """Trains a Ridge Regression model."""
     def train_ridge(self, train_df: pd.DataFrame, test_df: pd.DataFrame,
                     date_col: str, target_col: str) -> Tuple[Any, Dict[str, Any]]:
-        
-        
+        """Trains a Ridge Regression model."""
         try:
             X_train, y_train = self._prepare_features(train_df, date_col, target_col)
             X_test, y_test = self._prepare_features(test_df, date_col, target_col)
@@ -258,9 +272,11 @@ class ModelTrainer:
                 'model': 'Ridge',
                 'training_time': training_time,
                 'model_object': model,
-                'actual': y_test,
-                'predictions': y_pred_test,
-                'dates': test_df[date_col].values
+                'y_test': y_test.values,
+                'test_predictions': y_pred_test,
+                'test_rmse': np.sqrt(mean_squared_error(y_test, y_pred_test)),
+                'test_mae': mean_absolute_error(y_test, y_pred_test),
+                'test_r2': r2_score(y_test, y_pred_test)
             }
             
             self.logger.info("Ridge model training completed successfully")
@@ -270,9 +286,9 @@ class ModelTrainer:
             self.logger.error(f"Error training Ridge model: {str(e)}")
             return self._create_dummy_model(train_df, date_col, target_col, 'Ridge')
 
-    """Trains a Lasso Regression model."""
     def train_lasso(self, train_df: pd.DataFrame, test_df: pd.DataFrame,
                     date_col: str, target_col: str) -> Tuple[Any, Dict[str, Any]]:
+        """Trains a Lasso Regression model."""
         try:
             X_train, y_train = self._prepare_features(train_df, date_col, target_col)
             X_test, y_test = self._prepare_features(test_df, date_col, target_col)
@@ -292,9 +308,11 @@ class ModelTrainer:
                 'model': 'Lasso',
                 'training_time': training_time,
                 'model_object': model,
-                'actual': y_test,
-                'predictions': y_pred_test,
-                'dates': test_df[date_col].values
+                'y_test': y_test.values,
+                'test_predictions': y_pred_test,
+                'test_rmse': np.sqrt(mean_squared_error(y_test, y_pred_test)),
+                'test_mae': mean_absolute_error(y_test, y_pred_test),
+                'test_r2': r2_score(y_test, y_pred_test)
             }
             
             self.logger.info("Lasso model training completed successfully")
@@ -304,9 +322,9 @@ class ModelTrainer:
             self.logger.error(f"Error training Lasso model: {str(e)}")
             return self._create_dummy_model(train_df, date_col, target_col, 'Lasso')
 
-    """Trains a KNeighborsRegressor model."""
     def train_knn(self, train_df: pd.DataFrame, test_df: pd.DataFrame,
                     date_col: str, target_col: str) -> Tuple[Any, Dict[str, Any]]:
+        """Trains a KNeighborsRegressor model."""
         try:
             X_train, y_train = self._prepare_features(train_df, date_col, target_col)
             X_test, y_test = self._prepare_features(test_df, date_col, target_col)
@@ -326,9 +344,11 @@ class ModelTrainer:
                 'model': 'KNeighbors',
                 'training_time': training_time,
                 'model_object': model,
-                'actual': y_test,
-                'predictions': y_pred_test,
-                'dates': test_df[date_col].values
+                'y_test': y_test.values,
+                'test_predictions': y_pred_test,
+                'test_rmse': np.sqrt(mean_squared_error(y_test, y_pred_test)),
+                'test_mae': mean_absolute_error(y_test, y_pred_test),
+                'test_r2': r2_score(y_test, y_pred_test)
             }
             
             self.logger.info("KNeighbors model training completed successfully")
@@ -338,9 +358,9 @@ class ModelTrainer:
             self.logger.error(f"Error training KNeighbors model: {str(e)}")
             return self._create_dummy_model(train_df, date_col, target_col, 'KNeighbors')
 
-    """Trains a DecisionTreeRegressor model."""
     def train_decision_tree(self, train_df: pd.DataFrame, test_df: pd.DataFrame,
                             date_col: str, target_col: str) -> Tuple[Any, Dict[str, Any]]:
+        """Trains a DecisionTreeRegressor model."""
         try:
             X_train, y_train = self._prepare_features(train_df, date_col, target_col)
             X_test, y_test = self._prepare_features(test_df, date_col, target_col)
@@ -361,9 +381,11 @@ class ModelTrainer:
                 'training_time': training_time,
                 'model_object': model,
                 'feature_importance': dict(zip(X_train.columns, model.feature_importances_)),
-                'actual': y_test,
-                'predictions': y_pred_test,
-                'dates': test_df[date_col].values
+                'y_test': y_test.values,
+                'test_predictions': y_pred_test,
+                'test_rmse': np.sqrt(mean_squared_error(y_test, y_pred_test)),
+                'test_mae': mean_absolute_error(y_test, y_pred_test),
+                'test_r2': r2_score(y_test, y_pred_test)
             }
             
             self.logger.info("DecisionTree model training completed successfully")
@@ -373,9 +395,9 @@ class ModelTrainer:
             self.logger.error(f"Error training DecisionTree model: {str(e)}")
             return self._create_dummy_model(train_df, date_col, target_col, 'DecisionTree')
 
-    """Trains a Support Vector Regressor (SVR) model."""
     def train_svr(self, train_df: pd.DataFrame, test_df: pd.DataFrame,
                     date_col: str, target_col: str) -> Tuple[Any, Dict[str, Any]]:
+        """Trains a Support Vector Regressor (SVR) model."""
         try:
             X_train, y_train = self._prepare_features(train_df, date_col, target_col)
             X_test, y_test = self._prepare_features(test_df, date_col, target_col)
@@ -397,9 +419,11 @@ class ModelTrainer:
                 'model': 'SVR',
                 'training_time': training_time,
                 'model_object': model,
-                'actual': y_test,
-                'predictions': y_pred_test,
-                'dates': test_df[date_col].values
+                'y_test': y_test.values,
+                'test_predictions': y_pred_test,
+                'test_rmse': np.sqrt(mean_squared_error(y_test, y_pred_test)),
+                'test_mae': mean_absolute_error(y_test, y_pred_test),
+                'test_r2': r2_score(y_test, y_pred_test)
             }
             
             self.logger.info("SVR model training completed successfully")
@@ -409,9 +433,9 @@ class ModelTrainer:
             self.logger.error(f"Error training SVR model: {str(e)}")
             return self._create_dummy_model(train_df, date_col, target_col, 'SVR')
 
-    """Trains a RandomForestRegressor model."""
     def train_random_forest(self, train_df: pd.DataFrame, test_df: pd.DataFrame,
                             date_col: str, target_col: str) -> Tuple[Any, Dict[str, Any]]:
+        """Trains a RandomForestRegressor model."""
         try:
             X_train, y_train = self._prepare_features(train_df, date_col, target_col)
             X_test, y_test = self._prepare_features(test_df, date_col, target_col)
@@ -432,9 +456,11 @@ class ModelTrainer:
                 'training_time': training_time,
                 'model_object': model,
                 'feature_importance': dict(zip(X_train.columns, model.feature_importances_)),
-                'actual': y_test,
-                'predictions': y_pred_test,
-                'dates': test_df[date_col].values
+                'y_test': y_test.values,
+                'test_predictions': y_pred_test,
+                'test_rmse': np.sqrt(mean_squared_error(y_test, y_pred_test)),
+                'test_mae': mean_absolute_error(y_test, y_pred_test),
+                'test_r2': r2_score(y_test, y_pred_test)
             }
             
             self.logger.info("RandomForest model training completed successfully")
@@ -444,9 +470,9 @@ class ModelTrainer:
             self.logger.error(f"Error training RandomForest model: {str(e)}")
             return self._create_dummy_model(train_df, date_col, target_col, 'RandomForest')
 
-    """Trains a CatBoostRegressor model."""
     def train_catboost(self, train_df: pd.DataFrame, test_df: pd.DataFrame,
                        date_col: str, target_col: str) -> Tuple[Any, Dict[str, Any]]:
+        """Trains a CatBoostRegressor model."""
         try:
             X_train, y_train = self._prepare_features(train_df, date_col, target_col)
             X_test, y_test = self._prepare_features(test_df, date_col, target_col)
@@ -467,9 +493,11 @@ class ModelTrainer:
                 'training_time': training_time,
                 'model_object': model,
                 'feature_importance': dict(zip(X_train.columns, model.feature_importances_)),
-                'actual': y_test,
-                'predictions': y_pred_test,
-                'dates': test_df[date_col].values
+                'y_test': y_test.values,
+                'test_predictions': y_pred_test,
+                'test_rmse': np.sqrt(mean_squared_error(y_test, y_pred_test)),
+                'test_mae': mean_absolute_error(y_test, y_pred_test),
+                'test_r2': r2_score(y_test, y_pred_test)
             }
             
             self.logger.info("CatBoost model training completed successfully")
@@ -479,10 +507,9 @@ class ModelTrainer:
             self.logger.error(f"Error training CatBoost model: {str(e)}")
             return self._create_dummy_model(train_df, date_col, target_col, 'CatBoost')
 
-
-    """Train ensemble model combining multiple algorithms (VotingRegressor)."""
     def train_ensemble(self, train_df: pd.DataFrame, test_df: pd.DataFrame,
                        date_col: str, target_col: str) -> Tuple[Any, Dict[str, Any]]:
+        """Train ensemble model combining multiple algorithms (VotingRegressor)."""
         try:
             X_train, y_train = self._prepare_features(train_df, date_col, target_col)
             X_test, y_test = self._prepare_features(test_df, date_col, target_col)
@@ -495,7 +522,7 @@ class ModelTrainer:
             # Define individual models
             models = [
                 ('xgb', xgb.XGBRegressor(n_estimators=50, random_state=42)),
-                ('lgb', lgb.LGBMRegressor(n_estimators=50, random_state=42)),
+                ('lgb', lgb.LGBMRegressor(n_estimators=50, random_state=42, verbose=-1)),
                 ('rf', RandomForestRegressor(n_estimators=50, random_state=42))
             ]
             
@@ -510,9 +537,11 @@ class ModelTrainer:
                 'model': 'Ensemble (Voting)',
                 'training_time': training_time,
                 'model_object': ensemble,
-                'actual': y_test,
-                'predictions': y_pred_test,
-                'dates': test_df[date_col].values
+                'y_test': y_test.values,
+                'test_predictions': y_pred_test,
+                'test_rmse': np.sqrt(mean_squared_error(y_test, y_pred_test)),
+                'test_mae': mean_absolute_error(y_test, y_pred_test),
+                'test_r2': r2_score(y_test, y_pred_test)
             }
             
             self.logger.info("Ensemble model training completed successfully")
@@ -522,15 +551,15 @@ class ModelTrainer:
             self.logger.error(f"Error training ensemble model: {str(e)}")
             return self._create_dummy_model(train_df, date_col, target_col, 'Ensemble')
     
-    """Prepare features and target for machine learning models."""
     def _prepare_features(self, df: pd.DataFrame, date_col: str, target_col: str) -> Tuple[pd.DataFrame, pd.Series]:
+        """
+        Prepare features and target for machine learning models.
+        FIXED: Proper NaN handling with SimpleImputer.
+        """
         try:
             # Select numeric features and exclude date and target
             feature_cols = df.select_dtypes(include=[np.number]).columns.tolist()
             feature_cols = [col for col in feature_cols if col not in [date_col, target_col]]
-            
-            # Handle categorical features if any - CAVEAT: This needs proper handling
-            # For now, let's just use numeric features as per the original file
             
             if not feature_cols:
                 self.logger.warning("No suitable numeric features found for ML models")
@@ -539,8 +568,12 @@ class ModelTrainer:
             X = df[feature_cols].copy()
             y = df[target_col].copy()
             
-            # Handle missing values
-            X = X.fillna(X.mean())
+            # Handle missing values properly using SimpleImputer
+            X = pd.DataFrame(
+                self.imputer.fit_transform(X),
+                columns=X.columns,
+                index=X.index
+            )
             y = y.fillna(y.mean())
             
             return X, y
@@ -549,23 +582,26 @@ class ModelTrainer:
             self.logger.error(f"Error preparing features: {str(e)}")
             return None, None
     
-    """Create a dummy model for demonstration when real training fails."""
     def _create_dummy_model(self, df: pd.DataFrame, date_col: str, target_col: str, 
                           model_name: str) -> Tuple[Any, Dict[str, Any]]:
+        """Create a dummy model for demonstration when real training fails."""
         self.logger.warning(f"Creating dummy model for {model_name}")
         
         class DummyModel:
             def predict(self, X):
-                return np.full(X.shape[0], df[target_col].mean())
+                return np.full(X.shape[0] if hasattr(X, 'shape') else len(X), df[target_col].mean())
         
         # Create simple results
+        mean_val = df[target_col].mean()
         results = {
             'model': model_name,
             'training_time': 0.1,
             'model_object': DummyModel(),
-            'actual': df[target_col].values[:10],
-            'predictions': np.full(10, df[target_col].mean()),
-            'dates': df[date_col].values[:10] if date_col in df.columns else range(10)
+            'y_test': df[target_col].values[:10],
+            'test_predictions': np.full(10, mean_val),
+            'test_rmse': 0.0,
+            'test_mae': 0.0,
+            'test_r2': 0.0
         }
         
         return DummyModel(), results
