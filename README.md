@@ -30,7 +30,7 @@
 - ✅ **Interaction Features**: Automatic feature combinations
 
 ### Machine Learning Models
-- ✅ **11 Algorithms**: XGBoost, LightGBM, CatBoost, Random Forest, Prophet, Lasso, Ridge, Linear, Decision Tree, KNN, SVR
+- ✅ **9 Algorithms**: XGBoost, LightGBM, CatBoost, Random Forest, Lasso, Ridge, Linear, Decision Tree, KNN
 - ✅ **Ensemble Methods**: Voting Regressor and Hybrid Averaging
 - ✅ **Time Series Aware**: Chronological train/test splitting
 - ✅ **Feature Importance**: Automatic extraction and visualization
