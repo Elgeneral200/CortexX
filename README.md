@@ -281,6 +281,9 @@ cortexX-forecasting/
 │   ├── 4_🤖_Model_Training.py
 │   ├── 5_📈_Forecasting.py
 │   └── 6_📋_Model_Evaluation.py
+├── assts/
+│   ├── logo.png                   
+│   └── style.css                   
 ├── src/
 │   ├── data/
 │   │   ├── collection.py          # Data loading and generation
@@ -300,7 +303,9 @@ cortexX-forecasting/
 │   │   └── dashboard.py           # Plotly visualizations
 │   └── utils/
 │       ├── config.py              # Configuration management
-│       └── helpers.py             # Utility functions
+│       └── helpers.py
+|       └── validators.py   
+|       └── state_manager    
 ├── tests/
 │   ├── test_data.py
 │   ├── test_features.py
