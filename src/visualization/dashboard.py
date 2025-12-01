@@ -1,7 +1,12 @@
 """
 Enhanced Interactive visualization module for CortexX sales forecasting platform.
 
-ENHANCED: 
+PHASE 3 - SESSION 1: Added comparison chart capabilities
+- Comparison trend plots (current vs previous period)
+- Comparison bar charts
+- Comparison seasonality plots
+
+ENHANCED:
 - Full caching strategy
 - Singleton pattern
 - Removed Streamlit coupling
@@ -25,19 +30,22 @@ class VisualizationEngine:
     """
     Enterprise visualization engine for sales forecasting.
     
+    PHASE 3 - SESSION 1: Enhanced with comparison charts
+    
     ENHANCED:
     - Cached chart creation
     - Memory-efficient operations
     - No Streamlit coupling in core methods
+    - Comparison visualization support
     """
-
+    
     def __init__(self, theme: str = "plotly_white"):
         self.logger = logging.getLogger(__name__)
         self.theme = theme
         self.color_palette = px.colors.qualitative.Set1
-
+    
     def create_sales_trend_plot(self, df: pd.DataFrame, date_col: str,
-                                value_col: str, title: str = "Sales Trend Over Time") -> go.Figure:
+                               value_col: str, title: str = "Sales Trend Over Time") -> go.Figure:
         """
         Create interactive sales trend visualization.
         
@@ -49,7 +57,7 @@ class VisualizationEngine:
         except Exception as e:
             self.logger.error(f"Error creating sales trend plot: {str(e)}")
             return self._create_error_plot("Sales Trend Plot", str(e))
-
+    
     def create_seasonality_plot(self, df: pd.DataFrame, date_col: str,
                                value_col: str, title: str = "Seasonality Analysis") -> go.Figure:
         """
@@ -62,9 +70,9 @@ class VisualizationEngine:
         except Exception as e:
             self.logger.error(f"Error creating seasonality plot: {str(e)}")
             return self._create_error_plot("Seasonality Plot", str(e))
-
+    
     def create_correlation_heatmap(self, df: pd.DataFrame,
-                                   title: str = "Feature Correlation Matrix") -> go.Figure:
+                                  title: str = "Feature Correlation Matrix") -> go.Figure:
         """
         Create correlation heatmap for numerical features.
         
@@ -75,7 +83,7 @@ class VisualizationEngine:
         except Exception as e:
             self.logger.error(f"Error creating correlation heatmap: {str(e)}")
             return self._create_error_plot("Correlation Heatmap", str(e))
-
+    
     def create_forecast_comparison_plot(self,
                                        actual_values: np.ndarray,
                                        predicted_values: np.ndarray,
@@ -85,13 +93,13 @@ class VisualizationEngine:
         """Create forecast vs actual comparison plot."""
         try:
             return _create_forecast_comparison_cached(
-                actual_values, predicted_values, actual_dates, forecast_dates, 
+                actual_values, predicted_values, actual_dates, forecast_dates,
                 model_name, self.theme, self.color_palette
             )
         except Exception as e:
             self.logger.error(f"Error creating forecast comparison plot: {str(e)}")
             return self._create_error_plot("Forecast Comparison", str(e))
-
+    
     def create_residual_analysis_plot(self,
                                      actual_values: np.ndarray,
                                      predicted_values: np.ndarray,
@@ -102,7 +110,7 @@ class VisualizationEngine:
         except Exception as e:
             self.logger.error(f"Error creating residual analysis plot: {str(e)}")
             return self._create_error_plot("Residual Analysis", str(e))
-
+    
     def create_feature_importance_plot(self,
                                       importance_data: Union[pd.DataFrame, Dict],
                                       title: str = "Feature Importance") -> go.Figure:
@@ -121,7 +129,7 @@ class VisualizationEngine:
         except Exception as e:
             self.logger.error(f"Error creating feature importance plot: {str(e)}")
             return self._create_error_plot("Feature Importance", str(e))
-
+    
     def create_model_comparison_plot(self,
                                     comparison_df: pd.DataFrame,
                                     metric: str = 'RMSE',
@@ -144,7 +152,7 @@ class VisualizationEngine:
         except Exception as e:
             self.logger.error(f"Error creating model comparison plot: {str(e)}")
             return self._create_error_plot("Model Comparison", str(e))
-
+    
     def create_confidence_interval_plot(self,
                                        dates,
                                        predictions,
@@ -173,22 +181,124 @@ class VisualizationEngine:
             actual_list = actual_values.tolist() if actual_values is not None and isinstance(actual_values, (pd.Series, np.ndarray)) else None
             
             return _create_confidence_interval_cached(
-                dates_list, pred_list, lower_list, upper_list, actual_list, 
+                dates_list, pred_list, lower_list, upper_list, actual_list,
                 title, self.theme
             )
         except Exception as e:
             self.logger.error(f"Error creating confidence interval plot: {str(e)}")
             return self._create_error_plot("Confidence Interval Plot", str(e))
-
+    
+    # ============================================================================
+    # ✅ NEW: PHASE 3 - SESSION 1: COMPARISON CHART METHODS
+    # ============================================================================
+    
+    def create_comparison_trend_plot(self,
+                                    current_df: pd.DataFrame,
+                                    comparison_df: pd.DataFrame,
+                                    date_col: str,
+                                    value_col: str,
+                                    current_label: str = "Current Period",
+                                    comparison_label: str = "Previous Period",
+                                    title: str = "Period Comparison") -> go.Figure:
+        """
+        Create trend plot comparing two periods.
+        
+        ✅ NEW: Phase 3 - Session 1
+        
+        Args:
+            current_df: Current period DataFrame
+            comparison_df: Comparison period DataFrame
+            date_col: Date column name
+            value_col: Value column name
+            current_label: Label for current period
+            comparison_label: Label for comparison period
+            title: Chart title
+            
+        Returns:
+            Plotly figure with comparison
+        """
+        try:
+            return _create_comparison_trend_cached(
+                current_df, comparison_df, date_col, value_col,
+                current_label, comparison_label, title, self.theme, self.color_palette
+            )
+        except Exception as e:
+            self.logger.error(f"Error creating comparison trend plot: {str(e)}")
+            return self._create_error_plot("Comparison Trend", str(e))
+    
+    def create_comparison_bar_chart(self,
+                                   current_value: float,
+                                   comparison_value: float,
+                                   metric_name: str = "Metric",
+                                   current_label: str = "Current",
+                                   comparison_label: str = "Previous") -> go.Figure:
+        """
+        Create bar chart comparing two values.
+        
+        ✅ NEW: Phase 3 - Session 1
+        
+        Args:
+            current_value: Current period value
+            comparison_value: Comparison period value
+            metric_name: Name of the metric
+            current_label: Label for current value
+            comparison_label: Label for comparison value
+            
+        Returns:
+            Plotly figure with comparison bars
+        """
+        try:
+            return _create_comparison_bar_cached(
+                current_value, comparison_value, metric_name,
+                current_label, comparison_label, self.theme, self.color_palette
+            )
+        except Exception as e:
+            self.logger.error(f"Error creating comparison bar chart: {str(e)}")
+            return self._create_error_plot("Comparison Bar", str(e))
+    
+    def create_comparison_seasonality_plot(self,
+                                          current_df: pd.DataFrame,
+                                          comparison_df: pd.DataFrame,
+                                          date_col: str,
+                                          value_col: str,
+                                          title: str = "Seasonality Comparison") -> go.Figure:
+        """
+        Create seasonality plot comparing two periods.
+        
+        ✅ NEW: Phase 3 - Session 1
+        
+        Args:
+            current_df: Current period DataFrame
+            comparison_df: Comparison period DataFrame  
+            date_col: Date column name
+            value_col: Value column name
+            title: Chart title
+            
+        Returns:
+            Plotly figure with comparison
+        """
+        try:
+            return _create_comparison_seasonality_cached(
+                current_df, comparison_df, date_col, value_col,
+                title, self.theme, self.color_palette
+            )
+        except Exception as e:
+            self.logger.error(f"Error creating comparison seasonality plot: {str(e)}")
+            return self._create_error_plot("Comparison Seasonality", str(e))
+    
+    # ============================================================================
+    # ERROR HANDLING
+    # ============================================================================
+    
     def _create_error_plot(self, title: str, error_msg: str = "") -> go.Figure:
         """Create an error message plot."""
         fig = go.Figure()
         fig.add_annotation(
-            text=f"Error creating {title}<br><br><span style='color: red; font-size: 12px'>{error_msg}</span>",
+            text=f"Error creating {title}<br>{error_msg}",
             xref="paper", yref="paper",
             x=0.5, y=0.5, xanchor='center', yanchor='middle',
             showarrow=False,
-            font=dict(size=14, color="black")
+            font=dict(size=14, color="red")
         )
         fig.update_layout(
             title=title,
@@ -198,7 +308,7 @@ class VisualizationEngine:
             yaxis=dict(showgrid=False, zeroline=False, showticklabels=False)
         )
         return fig
-
+    
     def _create_message_plot(self, message: str) -> go.Figure:
         """Create a message plot."""
         fig = go.Figure()
@@ -219,12 +329,12 @@ class VisualizationEngine:
 
 
 # ============================================================================
-# CACHED VISUALIZATION FUNCTIONS (NEW - Performance boost!)
+# CACHED VISUALIZATION FUNCTIONS (Performance boost!)
 # ============================================================================
 
 @st.cache_data(show_spinner=False)
-def _create_sales_trend_cached(df: pd.DataFrame, date_col: str, value_col: str, 
-                               title: str, theme: str, color: str) -> go.Figure:
+def _create_sales_trend_cached(df: pd.DataFrame, date_col: str, value_col: str,
+                              title: str, theme: str, color: str) -> go.Figure:
     """Cached sales trend creation."""
     # Ensure data is properly formatted
     df_temp = df[[date_col, value_col]].copy()
@@ -261,7 +371,7 @@ def _create_sales_trend_cached(df: pd.DataFrame, date_col: str, value_col: str,
 
 @st.cache_data(show_spinner=False)
 def _create_seasonality_cached(df: pd.DataFrame, date_col: str, value_col: str,
-                               title: str, theme: str, color_palette: list) -> go.Figure:
+                              title: str, theme: str, color_palette: list) -> go.Figure:
     """Cached seasonality plot creation."""
     df_temp = df[[date_col, value_col]].copy()
     df_temp[date_col] = pd.to_datetime(df_temp[date_col])
@@ -280,7 +390,7 @@ def _create_seasonality_cached(df: pd.DataFrame, date_col: str, value_col: str,
     monthly_avg = df_temp.groupby('month')[value_col].mean().reset_index()
     fig.add_trace(
         go.Bar(x=monthly_avg['month'], y=monthly_avg[value_col],
-               name='Monthly', marker_color=color_palette[0]),
+              name='Monthly', marker_color=color_palette[0]),
         row=1, col=1
     )
     
@@ -289,7 +399,7 @@ def _create_seasonality_cached(df: pd.DataFrame, date_col: str, value_col: str,
     weekly_avg = df_temp.groupby('day_of_week')[value_col].mean().reset_index()
     fig.add_trace(
         go.Bar(x=weekly_avg['day_of_week'], y=weekly_avg[value_col],
-               name='Weekly', marker_color=color_palette[1]),
+              name='Weekly', marker_color=color_palette[1]),
         row=1, col=2
     )
     
@@ -298,8 +408,8 @@ def _create_seasonality_cached(df: pd.DataFrame, date_col: str, value_col: str,
     yearly_data = df_temp.groupby('year')[value_col].sum().reset_index()
     fig.add_trace(
         go.Scatter(x=yearly_data['year'], y=yearly_data[value_col],
-                   mode='lines+markers', name='Yearly',
-                   line=dict(color=color_palette[2])),
+                  mode='lines+markers', name='Yearly',
+                  line=dict(color=color_palette[2])),
         row=2, col=1
     )
     
@@ -308,8 +418,8 @@ def _create_seasonality_cached(df: pd.DataFrame, date_col: str, value_col: str,
     daily_avg = df_temp.groupby('day_of_month')[value_col].mean().reset_index()
     fig.add_trace(
         go.Scatter(x=daily_avg['day_of_month'], y=daily_avg[value_col],
-                   mode='lines', name='Daily',
-                   line=dict(color=color_palette[3])),
+                  mode='lines', name='Daily',
+                  line=dict(color=color_palette[3])),
         row=2, col=2
     )
     
@@ -343,6 +453,7 @@ def _create_correlation_cached(df: pd.DataFrame, title: str, theme: str) -> go.F
                     text_auto=True)
     
     fig.update_layout(height=600, xaxis_title="Features", yaxis_title="Features")
+    
     return fig
 
 
@@ -406,8 +517,8 @@ def _create_residual_analysis_cached(actual_values, predicted_values, title, the
     # Residuals vs Predicted
     fig.add_trace(
         go.Scatter(x=predicted_values, y=residuals,
-                   mode='markers', name='Residuals',
-                   marker=dict(color=color_palette[0], opacity=0.6)),
+                  mode='markers', name='Residuals',
+                  marker=dict(color=color_palette[0], opacity=0.6)),
         row=1, col=1
     )
     fig.add_hline(y=0, line_dash="dash", line_color="red", row=1, col=1)
@@ -431,6 +542,7 @@ def _create_residual_analysis_cached(actual_values, predicted_values, title, the
                       marker=dict(color=color_palette[2])),
             row=2, col=1
         )
+        
         fig.add_trace(
             go.Scatter(x=theoretical_quantiles, y=theoretical_quantiles,
                       mode='lines', name='Theoretical',
@@ -443,13 +555,14 @@ def _create_residual_analysis_cached(actual_values, predicted_values, title, the
     # Residuals over time
     fig.add_trace(
         go.Scatter(x=np.arange(len(residuals)), y=residuals,
-                   mode='lines', name='Residuals Over Time',
-                   line=dict(color=color_palette[3])),
+                  mode='lines', name='Residuals Over Time',
+                  line=dict(color=color_palette[3])),
         row=2, col=2
     )
     fig.add_hline(y=0, line_dash="dash", line_color="red", row=2, col=2)
     
     fig.update_layout(height=600, title_text=title, template=theme, showlegend=False)
+    
     return fig
 
 
@@ -510,6 +623,7 @@ def _create_model_comparison_cached(comparison_df: pd.DataFrame, metric: str, ti
                  color_continuous_scale='Viridis')
     
     fig.update_layout(height=500, xaxis_title='Models', yaxis_title=metric, showlegend=False)
+    
     return fig
 
 
@@ -558,6 +672,245 @@ def _create_confidence_interval_cached(_dates, _predictions, _lower_bounds, _upp
         hovermode='x unified',
         height=500
     )
+    
+    return fig
+
+
+# ============================================================================
+# ✅ NEW: PHASE 3 - SESSION 1: COMPARISON CACHED FUNCTIONS
+# ============================================================================
+
+@st.cache_data(show_spinner=False)
+def _create_comparison_trend_cached(current_df: pd.DataFrame,
+                                   comparison_df: pd.DataFrame,
+                                   date_col: str,
+                                   value_col: str,
+                                   current_label: str,
+                                   comparison_label: str,
+                                   title: str,
+                                   theme: str,
+                                   color_palette: list) -> go.Figure:
+    """
+    Cached comparison trend plot.
+    
+    ✅ NEW: Phase 3 - Session 1
+    """
+    fig = go.Figure()
+    
+    # Prepare current period data
+    current_temp = current_df[[date_col, value_col]].copy()
+    current_temp[date_col] = pd.to_datetime(current_temp[date_col])
+    current_temp = current_temp.sort_values(date_col)
+    
+    # Prepare comparison period data
+    comparison_temp = comparison_df[[date_col, value_col]].copy()
+    comparison_temp[date_col] = pd.to_datetime(comparison_temp[date_col])
+    comparison_temp = comparison_temp.sort_values(date_col)
+    
+    # Add current period (solid line)
+    fig.add_trace(go.Scatter(
+        x=current_temp[date_col],
+        y=current_temp[value_col],
+        name=current_label,
+        line=dict(color=color_palette[0], width=3),
+        mode='lines',
+        opacity=0.9
+    ))
+    
+    # Add comparison period (dashed line)
+    fig.add_trace(go.Scatter(
+        x=comparison_temp[date_col],
+        y=comparison_temp[value_col],
+        name=comparison_label,
+        line=dict(color=color_palette[1], width=2, dash='dash'),
+        mode='lines',
+        opacity=0.7
+    ))
+    
+    # Calculate summary metrics
+    current_avg = current_temp[value_col].mean()
+    comparison_avg = comparison_temp[value_col].mean()
+    change_pct = ((current_avg - comparison_avg) / comparison_avg * 100) if comparison_avg != 0 else 0
+    
+    # Add average lines
+    fig.add_hline(
+        y=current_avg,
+        line_dash="dot",
+        line_color=color_palette[0],
+        opacity=0.5,
+        annotation_text=f"{current_label} Avg: ${current_avg:,.0f}",
+        annotation_position="right"
+    )
+    
+    fig.add_hline(
+        y=comparison_avg,
+        line_dash="dot",
+        line_color=color_palette[1],
+        opacity=0.5,
+        annotation_text=f"{comparison_label} Avg: ${comparison_avg:,.0f}",
+        annotation_position="left"
+    )
+    
+    # Layout
+    fig.update_layout(
+        title=f"{title}<br><sub>Change: {change_pct:+.1f}%</sub>",
+        xaxis_title='Date',
+        yaxis_title='Value',
+        template=theme,
+        hovermode='x unified',
+        height=500,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        )
+    )
+    
+    return fig
+
+
+@st.cache_data(show_spinner=False)
+def _create_comparison_bar_cached(current_value: float,
+                                 comparison_value: float,
+                                 metric_name: str,
+                                 current_label: str,
+                                 comparison_label: str,
+                                 theme: str,
+                                 color_palette: list) -> go.Figure:
+    """
+    Cached comparison bar chart.
+    
+    ✅ NEW: Phase 3 - Session 1
+    """
+    # Calculate change
+    if comparison_value != 0:
+        change_pct = ((current_value - comparison_value) / comparison_value) * 100
+    else:
+        change_pct = 0
+    
+    # Determine colors based on change
+    current_color = color_palette[2] if change_pct >= 0 else color_palette[3]
+    comparison_color = color_palette[4]
+    
+    fig = go.Figure()
+    
+    # Add bars
+    fig.add_trace(go.Bar(
+        x=[current_label],
+        y=[current_value],
+        name=current_label,
+        marker_color=current_color,
+        text=[f"${current_value:,.0f}"],
+        textposition='outside'
+    ))
+    
+    fig.add_trace(go.Bar(
+        x=[comparison_label],
+        y=[comparison_value],
+        name=comparison_label,
+        marker_color=comparison_color,
+        text=[f"${comparison_value:,.0f}"],
+        textposition='outside'
+    ))
+    
+    # Layout
+    direction_emoji = "📈" if change_pct >= 0 else "📉"
+    fig.update_layout(
+        title=f"{metric_name} Comparison<br><sub>{direction_emoji} Change: {change_pct:+.1f}%</sub>",
+        yaxis_title=metric_name,
+        template=theme,
+        height=400,
+        showlegend=True,
+        bargap=0.3
+    )
+    
+    return fig
+
+
+@st.cache_data(show_spinner=False)
+def _create_comparison_seasonality_cached(current_df: pd.DataFrame,
+                                         comparison_df: pd.DataFrame,
+                                         date_col: str,
+                                         value_col: str,
+                                         title: str,
+                                         theme: str,
+                                         color_palette: list) -> go.Figure:
+    """
+    Cached comparison seasonality plot.
+    
+    ✅ NEW: Phase 3 - Session 1
+    """
+    # Prepare data
+    current_temp = current_df[[date_col, value_col]].copy()
+    current_temp[date_col] = pd.to_datetime(current_temp[date_col])
+    current_temp['month'] = current_temp[date_col].dt.month
+    current_temp['day_of_week'] = current_temp[date_col].dt.dayofweek
+    
+    comparison_temp = comparison_df[[date_col, value_col]].copy()
+    comparison_temp[date_col] = pd.to_datetime(comparison_temp[date_col])
+    comparison_temp['month'] = comparison_temp[date_col].dt.month
+    comparison_temp['day_of_week'] = comparison_temp[date_col].dt.dayofweek
+    
+    # Create subplots
+    fig = make_subplots(
+        rows=1, cols=2,
+        subplot_titles=('Monthly Comparison', 'Weekly Comparison')
+    )
+    
+    # Monthly comparison
+    current_monthly = current_temp.groupby('month')[value_col].mean().reset_index()
+    comparison_monthly = comparison_temp.groupby('month')[value_col].mean().reset_index()
+    
+    fig.add_trace(
+        go.Bar(x=current_monthly['month'], y=current_monthly[value_col],
+               name='Current Month', marker_color=color_palette[0], opacity=0.8),
+        row=1, col=1
+    )
+    
+    fig.add_trace(
+        go.Bar(x=comparison_monthly['month'], y=comparison_monthly[value_col],
+               name='Previous Month', marker_color=color_palette[1], opacity=0.6),
+        row=1, col=1
+    )
+    
+    # Weekly comparison
+    current_weekly = current_temp.groupby('day_of_week')[value_col].mean().reset_index()
+    comparison_weekly = comparison_temp.groupby('day_of_week')[value_col].mean().reset_index()
+    
+    day_names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    
+    fig.add_trace(
+        go.Bar(x=[day_names[i] for i in current_weekly['day_of_week']],
+               y=current_weekly[value_col],
+               name='Current Week', marker_color=color_palette[0], opacity=0.8,
+               showlegend=False),
+        row=1, col=2
+    )
+    
+    fig.add_trace(
+        go.Bar(x=[day_names[i] for i in comparison_weekly['day_of_week']],
+               y=comparison_weekly[value_col],
+               name='Previous Week', marker_color=color_palette[1], opacity=0.6,
+               showlegend=False),
+        row=1, col=2
+    )
+    
+    # Layout
+    fig.update_layout(
+        title_text=title,
+        template=theme,
+        height=400,
+        barmode='group',
+        showlegend=True,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    )
+    
+    fig.update_xaxes(title_text="Month", row=1, col=1)
+    fig.update_xaxes(title_text="Day of Week", row=1, col=2)
+    fig.update_yaxes(title_text="Average Value", row=1, col=1)
+    fig.update_yaxes(title_text="Average Value", row=1, col=2)
     
     return fig
 
