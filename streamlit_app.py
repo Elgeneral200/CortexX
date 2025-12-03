@@ -16,6 +16,7 @@ import numpy as np
 import sys
 import os
 from pathlib import Path
+import base64
 
 # Add src to path
 src_path = os.path.join(os.path.dirname(__file__), 'src')
@@ -27,6 +28,7 @@ from src.utils.config import get_config
 from src.utils.state_manager import StateManager
 from src.data.collection import get_data_collector, generate_sample_data_cached
 from src.visualization.dashboard import get_visualizer
+
 
 # Page configuration - Professional Enterprise Setup
 st.set_page_config(
@@ -146,9 +148,37 @@ class EnterpriseForecastingApp:
         self.config = get_config()
         self.collector = get_data_collector()
         self.visualizer = get_visualizer()
+    
+
+    def render_welcome_banner(self):
+        logo_path = Path(__file__).parent / "assets" / "logo.png"  # adjust if needed
+        logo_b64 = ""
+        if logo_path.exists():
+            with open(logo_path, "rb") as f:
+                logo_b64 = base64.b64encode(f.read()).decode("utf-8")
+
+        st.markdown(
+            f"""
+            <div class="cortexx-welcome-container">
+                <div class="cortexx-welcome-logo">
+                    <img src="data:image/png;base64,{logo_b64}" alt="CortexX Logo" />
+                </div>
+                <div>
+                    <div class="cortexx-welcome-text-title">
+                        Welcome to CortexX Sales Forecasting & Demand Planning Platform
+                    </div>
+                    <div class="cortexx-welcome-text-subtitle">
+                        Enterprise-grade sales forecasting, demand planning, and scenario analytics in one workspace.
+                    </div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
     def render_enterprise_header(self):
         """Render professional enterprise header."""
+        self.render_welcome_banner()
         st.markdown(
             '<div class="main-header">🧠 CORTEXX ENTERPRISE FORECASTING PLATFORM</div>',
             unsafe_allow_html=True
@@ -422,17 +452,29 @@ class EnterpriseForecastingApp:
             </div>
             ''', unsafe_allow_html=True)
             
+            # AI Assistant Toggle
+            st.markdown("### 💬 CortexX AI Assistant")
+            is_open = StateManager.get('chatbot_open', False)
+            label = "Hide Assistant" if is_open else "Open Assistant"
+
+            if st.button(label, use_container_width=True, key="toggle_chatbot"):
+                StateManager.set('chatbot_open', not is_open)
+                st.rerun()
+            
+            st.markdown("---")  # separator after chatbot section
+            
             self.render_sidebar_status()
             self.render_quick_actions()
             
             st.markdown("---")
             st.markdown("**Version** 3.0 Enterprise")
             st.markdown("**Status** 🟢 LIVE")
-            st.markdown("**Phase 2** ✅ Complete")
+            st.markdown("**Platform** ✅ Complete")
         
         # Render header and main content
         self.render_enterprise_header()
         self.dashboard_page()
+
 
 
 def main():

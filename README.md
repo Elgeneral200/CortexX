@@ -281,14 +281,18 @@ cortexX-forecasting/
 │   ├── 4_🤖_Model_Training.py
 │   ├── 5_📈_Forecasting.py
 │   └── 6_📋_Model_Evaluation.py
-├── assts/
+├── assets/
 │   ├── logo.png                   
 │   └── style.css                   
 ├── src/
 │   ├── analytics/ 
 │   │   ├── comparison.py         
 │   │   ├── custom_metrics.py      
-│   │   └── data_quality.py                        
+│   │   └── data_quality.py   
+│   ├── chatbot/ 
+│   │   ├── chatbot.py 
+│   │   
+│   │                     
 │   ├── data/
 │   │   ├── collection.py          # Data loading and generation
 │   │   ├── preprocessing.py       # Data cleaning and transformation

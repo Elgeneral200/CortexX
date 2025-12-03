@@ -21,6 +21,75 @@
     border-bottom: 1px solid #2d3746;
     animation: fadeIn 1s ease-in;
 }
+.cortexx-welcome-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5rem;
+    padding: 1.5rem 2rem;
+    margin-bottom: 1.5rem;
+    border-radius: 16px;
+    background: radial-gradient(circle at top left, #00d4ff33, #1a1d29 60%);
+    border: 1px solid #2d3746;
+    animation: fadeIn 1.2s ease-out;
+}
+
+.cortexx-welcome-logo {
+    width: 72px;
+    height: 72px;
+    border-radius: 16px;
+    background: #bce0f9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+}
+
+.cortexx-welcome-logo img {
+    max-width: 100%;
+    height: auto;
+}
+
+.cortexx-welcome-text-title {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: #ffffff;
+}
+
+.cortexx-welcome-text-subtitle {
+    font-size: 0.95rem;
+    color: #8b9bb4;
+}
+.cortexx-sidebar-logo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 1.5rem 0 0.5rem 0;
+}
+
+.cortexx-sidebar-logo img {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    background: #0b2536;
+    padding: 6px;
+    box-shadow: 0 0 10px rgba(0, 212, 255, 0.35);
+}
+
+.cortexx-sidebar-logo-title {
+    font-size: 1.1rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    color: #00d4ff;
+}
+
+.cortexx-sidebar-logo-subtitle {
+    font-size: 0.75rem;
+    color: #8b9bb4;
+    text-transform: uppercase;
+}
 
 /* Enterprise KPI Cards */
 .kpi-card {

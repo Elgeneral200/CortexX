@@ -49,6 +49,8 @@ class StateManager:
         # UI state
         'current_page': 'Dashboard',
         'selected_models': ['XGBoost', 'LightGBM', 'Random Forest'],
+        'chatbot_open': False,          # whether the chat panel is visible
+        'chat_history': [],
         
         # Feature engineering state
         'engineered_features': [],
@@ -73,6 +75,7 @@ class StateManager:
         'comparison_period': 'previous',  # 'previous' or 'previous_year'
         'filtered_data': None,  # Cached filtered data
         'comparison_data': None,  # Cached comparison period data
+        
     }
     
     @classmethod

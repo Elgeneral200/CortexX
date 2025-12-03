@@ -37,6 +37,7 @@ try:
     from src.utils.export_manager import ExportManager, generate_filename
     from src.analytics.comparison import ComparisonAnalytics, format_comparison_insight
     from src.reports.pdf_report import PDFReportGenerator, generate_filename_pdf
+    from src.chatbot.engine import generate_reply
     MODULES_AVAILABLE = True
     VALIDATORS_AVAILABLE = True
     PDF_AVAILABLE = True
@@ -648,6 +649,43 @@ def render_advanced_visualizations():
         else:
             st.info("ℹ️ No categorical columns available")
 
+def render_chatbot_panel():
+    """CortexX AI assistant panel on the dashboard."""
+
+    if not StateManager.get('chatbot_open', False):
+        return
+
+    st.markdown("---")
+    st.markdown("### 💬 CortexX AI Assistant")
+
+    history = StateManager.get('chat_history', [])
+
+    # Show existing messages
+    for msg in history:
+        role = msg.get("role", "assistant")
+        content = msg.get("content", "")
+        with st.chat_message(role):
+            st.markdown(content)
+
+    # New user input
+    user_input = st.chat_input("Ask about your data, models, or forecasts...")
+    if not user_input:
+        return
+
+    # Add user message
+    history.append({"role": "user", "content": user_input})
+    with st.chat_message("user"):
+        st.markdown(user_input)
+
+    # LLM reply
+    reply = generate_reply(history)
+    history.append({"role": "assistant", "content": reply})
+    with st.chat_message("assistant"):
+        st.markdown(reply)
+
+    StateManager.set('chat_history', history)
+    
+
 
 
 def main():
@@ -703,6 +741,9 @@ def main():
         # ✅ SESSION 5: Advanced Visualizations
         st.markdown("---")
         render_advanced_visualizations()
+
+        # 💬 CortexX AI Assistant
+        render_chatbot_panel()
 
 
 # FILTERS
@@ -765,6 +806,7 @@ def render_date_filter():
                 st.rerun()
     else:
         st.warning("⚠️ Load data first")
+
 
 
 def render_product_category_filter():
@@ -1056,7 +1098,7 @@ def display_dashboard_analytics():
                 st.info("No numeric columns")
         except Exception as e:
             st.error(f"Statistics error: {e}")
-
+    
 
 def display_comparison_analytics():
     df, date_col, value_col = get_current_data(), StateManager.get('date_column'), StateManager.get('value_column')
