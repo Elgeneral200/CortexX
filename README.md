@@ -210,7 +210,7 @@ metrics = evaluator.calculate_metrics(y_test, predictions)
 - Apply cyclical encoding
 
 ### 5. Model Training
-- Select from 11 algorithms
+- Select from 9 algorithms
 - Configure train/test split
 - Train multiple models in parallel
 - View training progress
@@ -285,6 +285,10 @@ cortexX-forecasting/
 │   ├── logo.png                   
 │   └── style.css                   
 ├── src/
+│   ├── analytics/ 
+│   │   ├── comparison.py         
+│   │   ├── custom_metrics.py      
+│   │   └── data_quality.py                        
 │   ├── data/
 │   │   ├── collection.py          # Data loading and generation
 │   │   ├── preprocessing.py       # Data cleaning and transformation
@@ -299,13 +303,20 @@ cortexX-forecasting/
 │   │   ├── optimization.py        # Hyperparameter tuning (NEW - M3)
 │   │   ├── intervals.py           # Prediction intervals (NEW - M3)
 │   │   └── backtesting.py         # Walk-forward validation (NEW - M3)
+│   ├── reports/
+│   │   └── pdf_report.py          # PDF report generation
 │   ├── visualization/
 │   │   └── dashboard.py           # Plotly visualizations
+│   │   └── adavnced_charts.py 
+│   │   └── forecast_ui.py         # Forecasting UI components
 │   └── utils/
 │       ├── config.py              # Configuration management
-│       └── helpers.py
-|       └── validators.py   
-|       └── state_manager    
+│       ├── export_manager.py       # Data export utilities
+│       ├── filters.py              
+│       └── helpers.py               
+│       └── state_manager.py        # Session state management
+│       └── validators.py
+
 ├── tests/
 │   ├── test_data.py
 │   ├── test_features.py
