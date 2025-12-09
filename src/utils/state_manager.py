@@ -409,6 +409,21 @@ class StateManager:
         
         # If no cache, return original data
         return cls.get('current_data')
+    @staticmethod
+    def get_trained_models():
+        """Get trained models from session state."""
+        return st.session_state.get('trained_models', {})
+
+    @staticmethod
+    def get_model_results():
+        """Get model results from session state."""
+        return st.session_state.get('model_results', {})
+
+    @staticmethod
+    def get_trained_model(model_name):
+        """Get specific trained model."""
+        models = StateManager.get_trained_models()
+        return models.get(model_name)
 
 
 # ============================================================================

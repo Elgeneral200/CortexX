@@ -70,29 +70,21 @@ class ModelTrainer:
         warnings.filterwarnings('ignore')
 
     def train_test_split(self, df: pd.DataFrame, date_col: str, target_col: str,
-                         test_size: float = None) -> Tuple[pd.DataFrame, pd.DataFrame]:
-        """
-        Split data into training and testing sets using time-based split.
-        
-        Args:
-            df: Input dataframe
-            date_col: Date column name
-            target_col: Target column name
-            test_size: Proportion for test set (uses config default if None)
-        
-        Returns:
-            Tuple of (train_df, test_df)
-        """
+                    test_size: float = None) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        """Split data into training and testing sets using time-based split."""
         try:
             if test_size is None:
                 test_size = self.config.model.default_test_size
             
-            # Ensure data is sorted by date
-            df_sorted = df.sort_values(date_col).copy()
+            # 🔥 FIXED: Bulletproof date column detection
+            date_cols = df.select_dtypes(include=['datetime64[ns]', 'datetime64', 'object']).columns
+            if len(date_cols) > 0:
+                actual_date_col = date_cols[0]
+                df_sorted = df.sort_values(actual_date_col).copy()
+            else:
+                df_sorted = df.reset_index(drop=True)  # Fallback
             
-            # Calculate split index
             split_idx = int(len(df_sorted) * (1 - test_size))
-            
             train_df = df_sorted.iloc[:split_idx]
             test_df = df_sorted.iloc[split_idx:]
             
@@ -102,6 +94,7 @@ class ModelTrainer:
         except Exception as e:
             self.logger.error(f"Error in train-test split: {str(e)}")
             raise ValueError(f"Train-test split failed: {str(e)}")
+
 
     def _prepare_features(self, df: pd.DataFrame, date_col: str, target_col: str, 
                          fit_preprocessors: bool = False, scale_features: bool = False) -> Tuple[Optional[pd.DataFrame], Optional[pd.Series]]:
