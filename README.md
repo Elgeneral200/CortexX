@@ -35,19 +35,19 @@
 - ✅ **Time Series Aware**: Chronological train/test splitting
 - ✅ **Feature Importance**: Automatic extraction and visualization
 
-### Hyperparameter Optimization (NEW - Milestone 3)
+### Hyperparameter Optimization 
 - ✅ **Optuna Framework**: Bayesian optimization with TPE sampler
 - ✅ **Time Series CV**: TimeSeriesSplit for robust evaluation
 - ✅ **Multiple Metrics**: RMSE, MAE, R² optimization
 - ✅ **Optimization History**: Track performance across trials
 
-### Prediction Intervals (NEW - Milestone 3)
+### Prediction Intervals 
 - ✅ **3 Methods**: Residual-based, Bootstrap, and Quantile regression
 - ✅ **Confidence Bands**: 90%, 95%, or 99% confidence levels
 - ✅ **Coverage Evaluation**: Measure interval reliability
 - ✅ **Uncertainty Quantification**: Risk assessment for business decisions
 
-### Backtesting (NEW - Milestone 3)
+### Backtesting 
 - ✅ **Walk-Forward Validation**: Realistic performance testing
 - ✅ **Two Strategies**: Expanding window and Rolling window
 - ✅ **Model Comparison**: Compare multiple models with backtesting
